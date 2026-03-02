@@ -19,9 +19,20 @@ MemoryWeb ingests your AI conversation history (Claude, ChatGPT, and more), extr
 
 ---
 
-## Quick Start — Docker (Recommended)
+## Quick Start — Windows (Double-Click)
 
-**Requirements**: Docker Desktop with Docker Compose v2
+1. Install **[Docker Desktop](https://docs.docker.com/desktop/install/windows-install/)** (free — required)
+2. Start Docker Desktop and wait for it to finish loading
+3. [Download or clone this repo](https://github.com/rblake2320/memoryweb)
+4. Open the folder and double-click **`INSTALL.bat`**
+
+The installer checks Docker, downloads all services, waits for them to start, and opens your browser automatically. First run takes 2–5 minutes to download images (~1.5 GB).
+
+---
+
+## Quick Start — Mac / Linux (Docker)
+
+**Requirements**: Docker Desktop (Mac) or Docker Engine + Compose v2 (Linux)
 
 ```bash
 git clone https://github.com/rblake2320/memoryweb.git
