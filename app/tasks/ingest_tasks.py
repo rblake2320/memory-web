@@ -55,6 +55,19 @@ def ingest_shared_chat_task(
         raise
 
 
+@celery_app.task(bind=True, name="memoryweb.ingest_chatgpt")
+def ingest_chatgpt_task(self, path: str, force: bool = False) -> Dict[str, Any]:
+    """Ingest a ChatGPT data export (conversations.json or .zip)."""
+    self.update_state(state="STARTED", meta={"path": path, "stage": "parsing"})
+    try:
+        result = ingestion.ingest_chatgpt_export(path, force=force)
+        return result
+    except Exception as e:
+        logger.error("ingest_chatgpt_task failed: %s", e)
+        self.update_state(state="FAILURE", meta={"error": str(e)})
+        raise
+
+
 @celery_app.task(bind=True, name="memoryweb.ingest_sqlite_memory")
 def ingest_sqlite_memory_task(self, path: Optional[str] = None) -> Dict[str, Any]:
     """Import existing SQLite memory.db."""

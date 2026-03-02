@@ -16,6 +16,7 @@ from ..database import db_session
 from ..models import Conversation, Message, Source
 from ..parsers.claude_session import ParsedConversation, parse_session_file, iter_session_files
 from ..parsers.claude_history import parse_history_file
+from ..parsers.chatgpt_export import parse_chatgpt_export
 from ..parsers.shared_chat import SharedChatMessage, batch_parse_shared_chat, parse_shared_chat_file
 from ..parsers.sqlite_memory import import_journal_entries, import_knowledge_items, list_tables
 
@@ -154,6 +155,67 @@ def ingest_all_sessions(
         "sources": len(sources),
         "conversations": total_conv,
         "messages": total_msg,
+    }
+
+
+def ingest_chatgpt_export(path: str, force: bool = False) -> Dict[str, Any]:
+    """
+    Ingest a ChatGPT data export (conversations.json or .zip containing it).
+    Creates one Source, one Conversation per ChatGPT conversation thread.
+    Returns stats: {source_id, conversations, messages, skipped}.
+    """
+    path = str(Path(path).resolve())
+    source_hash = _file_hash(path)
+
+    with db_session() as db:
+        source, is_new = _get_or_create_source(
+            db, "chatgpt_export", path, source_hash, force
+        )
+        if not is_new:
+            return {"source_id": source.id, "skipped": True, "reason": "hash_unchanged"}
+
+        parsed_convs = parse_chatgpt_export(path)
+
+        total_messages = 0
+        for pc in parsed_convs:
+            conv = Conversation(
+                source_id=source.id,
+                external_id=pc.external_id,
+                title=pc.title[:500] if pc.title else "ChatGPT Conversation",
+                participant="chatgpt",
+                started_at=pc.started_at,
+                ended_at=pc.ended_at,
+                message_count=len(pc.messages),
+            )
+            db.add(conv)
+            db.flush()
+
+            msg_objs = []
+            for i, pm in enumerate(pc.messages):
+                msg = Message(
+                    conversation_id=conv.id,
+                    ordinal=i,
+                    role=pm.role,
+                    content=pm.content[:32000] if pm.content else None,
+                    raw_json={"model_slug": pm.model_slug, "uuid": pm.external_uuid},
+                    external_uuid=pm.external_uuid or None,
+                    char_offset_start=0,
+                    char_offset_end=len(pm.content) if pm.content else 0,
+                    sent_at=pm.sent_at,
+                )
+                msg_objs.append(msg)
+
+            db.bulk_save_objects(msg_objs)
+            total_messages += len(pc.messages)
+
+        source.message_count = total_messages
+        db.flush()
+
+    return {
+        "source_id": source.id,
+        "conversations": len(parsed_convs),
+        "messages": total_messages,
+        "skipped": False,
     }
 
 

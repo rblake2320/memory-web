@@ -2,190 +2,888 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>MemoryWeb Dashboard</title>
+<title>MemoryWeb</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0f172a; color: #e2e8f0; font-family: 'Segoe UI', monospace; padding: 24px; min-height: 100vh; }
-  h1 { color: #38bdf8; font-size: 28px; margin-bottom: 4px; }
-  .sub { color: #64748b; font-size: 13px; margin-bottom: 24px; }
-  .section-title { color: #94a3b8; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; font-weight: bold; }
-  .grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; margin-bottom: 24px; }
-  .card { background: #1e293b; border-radius: 8px; padding: 14px; border: 1px solid #334155; }
-  .card .val { font-size: 26px; font-weight: bold; color: #38bdf8; }
-  .card .lbl { font-size: 10px; color: #64748b; margin-top: 4px; text-transform: uppercase; }
-  .svc { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
-  .svc span { padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 500; }
-  .ok { background: #064e3b; color: #34d399; }
-  .fail { background: #451a03; color: #fbbf24; }
-  .search-box { display: flex; gap: 8px; margin-bottom: 16px; }
-  input { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; padding: 10px 14px; border-radius: 6px; flex: 1; font-size: 14px; outline: none; }
-  input:focus { border-color: #38bdf8; }
-  button { background: #0284c7; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; }
-  button:hover { background: #0369a1; }
-  .results-panel { background: #1e293b; border-radius: 8px; border: 1px solid #334155; overflow: hidden; }
-  .results-header { padding: 12px 16px; border-bottom: 1px solid #334155; background: #0f172a; font-size: 12px; color: #94a3b8; display: flex; gap: 16px; align-items: center; }
-  .timing { color: #fbbf24; font-weight: 600; }
-  .tier-badge { background: #1d4ed8; color: #bfdbfe; border-radius: 4px; padding: 2px 8px; font-size: 11px; }
-  .result { padding: 16px; border-bottom: 1px solid #1e293b; }
-  .result:last-child { border: none; }
-  .fact { color: #f1f5f9; font-size: 14px; line-height: 1.5; margin-bottom: 8px; }
-  .tags { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; }
-  .tag { background: #1e3a5f; color: #93c5fd; border-radius: 4px; padding: 2px 7px; font-size: 10px; }
-  .tag.domain { background: #312e81; color: #c4b5fd; }
-  .tag.intent { background: #0c4a6e; color: #7dd3fc; }
-  .tag.sensitivity { background: #3f3f00; color: #fde68a; }
-  .tag.importance { background: #064e3b; color: #6ee7b7; }
-  .prov { color: #a78bfa; font-size: 11px; margin-top: 4px; }
-  .prov a { color: #818cf8; text-decoration: none; }
-  .score { float: right; color: #64748b; font-size: 11px; }
-  #loading { color: #38bdf8; padding: 24px; text-align: center; font-size: 16px; }
-  .empty { color: #475569; padding: 32px; text-align: center; }
-  .tombstone-panel { margin-top: 24px; }
-  .tombstone-input { display: flex; gap: 8px; }
-  select { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; padding: 10px 14px; border-radius: 6px; font-size: 14px; }
-  .btn-danger { background: #dc2626; }
-  .btn-danger:hover { background: #b91c1c; }
-  .btn-success { background: #059669; }
-  .toast { position: fixed; bottom: 20px; right: 20px; background: #1e293b; border: 1px solid #334155; padding: 12px 20px; border-radius: 8px; color: #34d399; font-size: 13px; opacity: 0; transition: opacity 0.3s; }
-  .toast.show { opacity: 1; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0f172a; color: #e2e8f0; font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+/* ── Layout ── */
+.header { background: #1e293b; border-bottom: 1px solid #334155; padding: 14px 24px; display: flex; align-items: center; gap: 16px; }
+.header h1 { color: #38bdf8; font-size: 22px; }
+.header .sub { color: #64748b; font-size: 12px; }
+.nav { display: flex; gap: 4px; margin-left: auto; }
+.nav-btn { background: none; border: 1px solid #334155; color: #94a3b8; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all .15s; }
+.nav-btn:hover, .nav-btn.active { background: #0284c7; border-color: #0284c7; color: #fff; }
+.main { display: flex; height: calc(100vh - 57px); }
+.sidebar { width: 260px; background: #1e293b; border-right: 1px solid #334155; padding: 16px; overflow-y: auto; flex-shrink: 0; }
+.content { flex: 1; overflow-y: auto; padding: 20px; }
+/* ── Sidebar ── */
+.svc-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+.svc-item { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 6px 10px; border-radius: 6px; background: #0f172a; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot.ok { background: #34d399; }
+.dot.fail { background: #fbbf24; }
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+.stat-card { background: #0f172a; border-radius: 6px; padding: 10px; border: 1px solid #334155; }
+.stat-card .val { font-size: 20px; font-weight: bold; color: #38bdf8; }
+.stat-card .lbl { font-size: 9px; color: #64748b; text-transform: uppercase; margin-top: 2px; }
+.section-hdr { color: #64748b; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; font-weight: 600; }
+/* ── Tabs ── */
+.tab-bar { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 0; }
+.tab { background: none; border: none; color: #64748b; padding: 8px 16px; cursor: pointer; font-size: 14px; border-bottom: 2px solid transparent; transition: all .15s; }
+.tab:hover { color: #e2e8f0; }
+.tab.active { color: #38bdf8; border-bottom-color: #38bdf8; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+/* ── Search ── */
+.tier-btns { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.tier-btn { background: #1e293b; border: 1px solid #334155; color: #94a3b8; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all .15s; }
+.tier-btn:hover { border-color: #38bdf8; color: #38bdf8; }
+.tier-btn.active { background: #0c4a6e; border-color: #38bdf8; color: #38bdf8; font-weight: 600; }
+.search-row { display: flex; gap: 8px; margin-bottom: 16px; }
+.search-input { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; padding: 10px 14px; border-radius: 6px; flex: 1; font-size: 14px; outline: none; }
+.search-input:focus { border-color: #38bdf8; }
+.btn { background: #0284c7; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; white-space: nowrap; }
+.btn:hover { background: #0369a1; }
+.btn:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+.results-panel { background: #1e293b; border-radius: 8px; border: 1px solid #334155; overflow: hidden; }
+.results-header { padding: 10px 16px; border-bottom: 1px solid #334155; background: #0f172a; font-size: 12px; color: #94a3b8; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.timing { color: #fbbf24; font-weight: 600; }
+.tier-badge { border-radius: 4px; padding: 2px 7px; font-size: 11px; }
+.t1 { background: #164e63; color: #67e8f9; }
+.t2 { background: #1e3a5f; color: #7dd3fc; }
+.t3 { background: #312e81; color: #c4b5fd; }
+.result { padding: 14px 16px; border-bottom: 1px solid #1e293b; }
+.result:last-child { border: none; }
+.result-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+.fact { color: #f1f5f9; font-size: 14px; line-height: 1.5; flex: 1; }
+.result-meta { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+.score-badge { color: #64748b; font-size: 11px; }
+.tags { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; }
+.tag { border-radius: 4px; padding: 2px 7px; font-size: 10px; }
+.tag.domain { background: #312e81; color: #c4b5fd; }
+.tag.intent { background: #0c4a6e; color: #7dd3fc; }
+.tag.sensitivity { background: #3f3f00; color: #fde68a; }
+.tag.importance { background: #064e3b; color: #6ee7b7; }
+.tag.default { background: #1e293b; color: #94a3b8; }
+.prov { color: #818cf8; font-size: 11px; margin-top: 4px; }
+.helpful-btn { background: none; border: 1px solid #334155; color: #64748b; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+.helpful-btn:hover { border-color: #34d399; color: #34d399; }
+.helpful-btn.voted { border-color: #34d399; color: #34d399; background: #064e3b22; }
+.error-msg { color: #fca5a5; background: #450a0a; border: 1px solid #7f1d1d; padding: 16px; border-radius: 8px; font-size: 14px; }
+.empty { color: #475569; padding: 32px; text-align: center; }
+.spinner { color: #38bdf8; padding: 24px; text-align: center; font-size: 14px; }
+/* ── Memory Browser ── */
+.mem-controls { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+select { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; padding: 8px 12px; border-radius: 6px; font-size: 13px; }
+.mem-list { display: flex; flex-direction: column; gap: 8px; }
+.mem-card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 14px; }
+.mem-card:hover { border-color: #38bdf8; }
+.mem-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.mem-id { color: #38bdf8; font-size: 11px; font-weight: 600; cursor: pointer; }
+.mem-id:hover { text-decoration: underline; }
+.mem-content { color: #f1f5f9; font-size: 13px; line-height: 1.5; margin-bottom: 8px; }
+.mem-footer { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.utility { color: #64748b; font-size: 11px; }
+.delete-btn { background: none; border: 1px solid #7f1d1d; color: #fca5a5; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+.delete-btn:hover { background: #450a0a; }
+.prov-detail { background: #0f172a; border-radius: 6px; padding: 10px; margin-top: 8px; font-size: 11px; color: #64748b; display: none; }
+.prov-detail.open { display: block; }
+.pagination { display: flex; gap: 8px; margin-top: 16px; align-items: center; justify-content: center; }
+.page-btn { background: #1e293b; border: 1px solid #334155; color: #94a3b8; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.page-btn:hover { border-color: #38bdf8; color: #38bdf8; }
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+/* ── Chat ── */
+.chat-wrap { display: flex; flex-direction: column; height: calc(100vh - 160px); }
+.chat-history { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 12px; }
+.msg { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+.msg.user { background: #0c4a6e; color: #e2e8f0; align-self: flex-end; border-bottom-right-radius: 4px; }
+.msg.assistant { background: #1e293b; color: #e2e8f0; align-self: flex-start; border: 1px solid #334155; border-bottom-left-radius: 4px; }
+.msg.system { color: #64748b; font-size: 12px; align-self: center; background: none; font-style: italic; }
+.chat-footer { display: flex; flex-direction: column; gap: 8px; }
+.chat-meta { display: flex; gap: 8px; align-items: center; font-size: 12px; color: #64748b; }
+.chat-input-row { display: flex; gap: 8px; }
+.chat-input { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; padding: 12px 14px; border-radius: 8px; flex: 1; font-size: 14px; outline: none; resize: none; min-height: 48px; max-height: 160px; font-family: inherit; }
+.chat-input:focus { border-color: #38bdf8; }
+/* ── Settings ── */
+.settings-form { max-width: 540px; display: flex; flex-direction: column; gap: 20px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group label { font-size: 13px; color: #94a3b8; font-weight: 500; }
+.form-group input, .form-group select { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; padding: 10px 14px; border-radius: 6px; font-size: 14px; outline: none; }
+.form-group input:focus, .form-group select:focus { border-color: #38bdf8; }
+.form-hint { font-size: 11px; color: #64748b; }
+.save-btn { background: #059669; color: white; border: none; padding: 10px 24px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; align-self: flex-start; }
+.save-btn:hover { background: #047857; }
+/* ── Toast ── */
+.toast { position: fixed; bottom: 20px; right: 20px; background: #1e293b; border: 1px solid #334155; padding: 10px 18px; border-radius: 8px; color: #34d399; font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 1100; }
+.toast.show { opacity: 1; }
+.toast.err { color: #fca5a5; }
 </style>
 </head>
 <body>
-<h1>🧠 MemoryWeb</h1>
-<div class="sub">Provenance-Aware Tiered Memory System &nbsp;·&nbsp; <span id="api-url">http://127.0.0.1:8100</span></div>
-
-<div class="section-title">Services</div>
-<div id="services" class="svc"><span style="color:#475569">Loading…</span></div>
-
-<div class="section-title">Database</div>
-<div id="stats" class="grid"><div class="card"><div class="val" style="color:#475569">…</div><div class="lbl">loading</div></div></div>
-
-<div class="section-title">Pipeline Health</div>
-<div id="pipeline-health" class="svc"><span style="color:#475569">Loading…</span></div>
-
-<div class="section-title">Memory Search</div>
-<div class="search-box">
-  <input id="query" value="pgvector installation" placeholder="Search your memories…" onkeydown="if(event.key==='Enter') doSearch()" />
-  <button onclick="doSearch()">Search</button>
+<div class="header">
+  <h1>🧠 MemoryWeb</h1>
+  <span class="sub">Provenance-Aware Tiered Memory System</span>
+  <div class="nav">
+    <button class="nav-btn active" onclick="showView('search')">Search</button>
+    <button class="nav-btn" onclick="showView('memories')">Memories</button>
+    <button class="nav-btn" onclick="showView('chat')">Chat</button>
+    <button class="nav-btn" onclick="showView('settings')">Settings</button>
+  </div>
 </div>
-<div id="results-panel" class="results-panel">
-  <div id="loading">Loading…</div>
-</div>
+
+<div class="main">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="section-hdr">Services</div>
+    <div id="services" class="svc-list"><div style="color:#475569;font-size:12px">Loading…</div></div>
+
+    <div class="section-hdr" style="margin-top:16px">Stats</div>
+    <div id="stats" class="stat-grid"><div class="stat-card"><div class="val" style="color:#475569">…</div><div class="lbl">loading</div></div></div>
+
+    <div class="section-hdr" style="margin-top:16px">Pipeline</div>
+    <div id="pipeline-health" style="font-size:12px;color:#64748b">Loading…</div>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- SEARCH TAB -->
+    <div id="view-search" class="tab-panel active">
+      <div class="tier-btns">
+        <button class="tier-btn active" onclick="setTier(null, this)" title="Cascade: runs T1→T2→T3 and stops when enough results are found">Auto (cascade)</button>
+        <button class="tier-btn" onclick="setTier(1, this)">T1: SQL</button>
+        <button class="tier-btn" onclick="setTier(2, this)">T2: Trigram</button>
+        <button class="tier-btn" onclick="setTier(3, this)">T3: Semantic</button>
+      </div>
+      <div class="search-row">
+        <input id="query" class="search-input" value="" placeholder="Search your memories…"
+               onkeydown="if(event.key==='Enter') doSearch()" />
+        <button class="btn" id="search-btn" onclick="doSearch()">Search</button>
+      </div>
+      <div id="results-panel" class="results-panel">
+        <div class="spinner">Enter a query and press Search</div>
+      </div>
+    </div>
+
+    <!-- MEMORIES TAB -->
+    <div id="view-memories" class="tab-panel">
+      <div class="mem-controls">
+        <select id="mem-category" onchange="loadMemories(1)">
+          <option value="">All Categories</option>
+          <option value="problem">Problem</option>
+          <option value="solution">Solution</option>
+          <option value="decision">Decision</option>
+          <option value="learning">Learning</option>
+          <option value="system_state">System State</option>
+          <option value="preference">Preference</option>
+          <option value="request">Request</option>
+          <option value="comparison">Comparison</option>
+          <option value="architecture">Architecture</option>
+          <option value="configuration">Configuration</option>
+          <option value="task">Task</option>
+          <option value="result">Result</option>
+          <option value="testing">Testing</option>
+        </select>
+        <select id="mem-importance" onchange="loadMemories(1)">
+          <option value="">Any Importance</option>
+          <option value="5">5 — Critical</option>
+          <option value="4">4 — High</option>
+          <option value="3">3 — Medium</option>
+          <option value="2">2 — Low</option>
+          <option value="1">1 — Minimal</option>
+        </select>
+        <button class="btn" onclick="loadMemories(1)" style="padding:8px 16px;font-size:13px">Refresh</button>
+        <button class="btn" onclick="toggleDeleteHistory()" style="padding:8px 16px;font-size:13px;background:#334155;margin-left:auto" id="history-toggle-btn">🗑 Delete Log</button>
+      </div>
+      <div id="delete-history-panel" style="display:none;background:#0f172a;border:1px solid #334155;border-radius:8px;margin-bottom:16px;overflow:hidden;">
+        <div style="padding:10px 16px;background:#1e293b;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;">
+          <span style="color:#94a3b8;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Delete History</span>
+          <span style="color:#475569;font-size:11px">Soft-deleted — data is preserved and can be restored</span>
+        </div>
+        <div id="delete-history-list" style="padding:12px 16px;"><div class="spinner">Loading…</div></div>
+      </div>
+      <div id="mem-list" class="mem-list"><div class="spinner">Loading memories…</div></div>
+      <div id="mem-pagination" class="pagination"></div>
+    </div>
+
+    <!-- CHAT TAB -->
+    <div id="view-chat" class="tab-panel">
+      <div class="chat-wrap">
+        <div id="chat-history" class="chat-history">
+          <div class="msg system">Ask anything — I'll answer using your memories as context.</div>
+        </div>
+        <div class="chat-footer">
+          <div class="chat-meta">
+            <span>Provider: <strong id="chat-provider-label">ollama</strong></span>
+            <span style="margin-left:auto;color:#38bdf8" id="chat-mem-count"></span>
+          </div>
+          <div class="chat-input-row">
+            <textarea id="chat-input" class="chat-input" placeholder="Ask about your projects, notes, decisions…"
+                      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}" rows="2"></textarea>
+            <button class="btn" id="chat-btn" onclick="sendChat()">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS TAB -->
+    <div id="view-settings" class="tab-panel">
+      <div class="settings-form">
+        <h2 style="color:#38bdf8;font-size:18px;margin-bottom:4px">Settings</h2>
+        <p style="color:#64748b;font-size:13px;margin-bottom:8px">Configure LLM provider and API keys for the chat feature.</p>
+
+        <div class="form-group">
+          <label>LLM Provider</label>
+          <select id="s-provider" onchange="onProviderChange()">
+            <option value="ollama">Ollama (local — free)</option>
+            <option value="claude">Claude (Anthropic API)</option>
+            <option value="openai">OpenAI</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="s-ollama-group">
+          <label>Ollama Model</label>
+          <input id="s-ollama-model" type="text" placeholder="e.g. qwen2.5-coder:32b" />
+          <span class="form-hint">Must be pulled locally via: <code>ollama pull &lt;model&gt;</code></span>
+        </div>
+
+        <div class="form-group" id="s-claude-group" style="display:none">
+          <label>Claude API Key</label>
+          <input id="s-claude-key" type="password" placeholder="sk-ant-… (leave blank to keep existing)" autocomplete="new-password" />
+          <span class="form-hint" id="s-claude-hint"></span>
+          <label style="margin-top:8px">Model</label>
+          <select id="s-claude-model">
+            <option value="claude-sonnet-4-6">claude-sonnet-4-6 (recommended)</option>
+            <option value="claude-opus-4-6">claude-opus-4-6 (most capable)</option>
+            <option value="claude-haiku-4-5-20251001">claude-haiku-4-5 (fastest)</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="s-openai-group" style="display:none">
+          <label>OpenAI API Key</label>
+          <input id="s-openai-key" type="password" placeholder="sk-… (leave blank to keep existing)" autocomplete="new-password" />
+          <span class="form-hint" id="s-openai-hint"></span>
+          <label style="margin-top:8px">Model</label>
+          <input id="s-openai-model" type="text" placeholder="e.g. gpt-4o-mini" />
+        </div>
+
+        <button class="save-btn" onclick="saveSettings()">Save Settings</button>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
 
 <div class="toast" id="toast"></div>
 
+<!-- Undo countdown bar (appears for 30s after a delete) -->
+<div id="undo-toast" style="display:none;position:fixed;bottom:64px;left:50%;transform:translateX(-50%);background:#1e293b;border:1px solid #f97316;padding:12px 20px;border-radius:10px;color:#f1f5f9;font-size:13px;z-index:1100;align-items:center;gap:14px;box-shadow:0 8px 32px rgba(0,0,0,0.5);white-space:nowrap;">
+  <span id="undo-msg" style="flex:1;max-width:320px;overflow:hidden;text-overflow:ellipsis;"></span>
+  <button onclick="undoDelete()" style="background:#f97316;color:white;border:none;padding:6px 14px;border-radius:5px;cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap;">↩ Undo</button>
+  <span id="undo-countdown" style="color:#94a3b8;font-size:12px;min-width:30px;text-align:right;"></span>
+</div>
+
+<!-- Welcome overlay — shown when database is empty (first run) -->
+<div id="welcome-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;align-items:center;justify-content:center;">
+  <div style="background:#1e293b;border:1px solid #38bdf8;border-radius:14px;padding:36px 32px;max-width:540px;width:93%;box-shadow:0 24px 80px rgba(0,0,0,0.6);">
+    <h2 style="color:#38bdf8;margin-bottom:6px;font-size:20px;">Welcome to MemoryWeb</h2>
+    <p style="color:#94a3b8;font-size:13px;margin-bottom:20px;">Your AI conversation memory system is running. Let's get some data in.</p>
+
+    <!-- Service health checklist -->
+    <div id="welcome-services" style="margin-bottom:20px;display:flex;flex-direction:column;gap:6px;"></div>
+
+    <!-- Action cards -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+      <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px;">
+        <div style="color:#f1f5f9;font-weight:600;font-size:14px;margin-bottom:6px;">📁 Upload your data</div>
+        <p style="color:#64748b;font-size:12px;margin-bottom:10px;">Claude sessions (.jsonl) or ChatGPT export (.zip or conversations.json)</p>
+        <input type="file" id="welcome-upload-input" accept=".jsonl,.json,.zip,.db,.sqlite" style="display:none" onchange="welcomeUpload(this)">
+        <button class="btn" style="width:100%;font-size:13px;padding:8px" onclick="document.getElementById('welcome-upload-input').click()">Upload File</button>
+      </div>
+      <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px;">
+        <div style="color:#f1f5f9;font-weight:600;font-size:14px;margin-bottom:6px;">🎯 Try sample data</div>
+        <p style="color:#64748b;font-size:12px;margin-bottom:10px;">Load 5 demo conversations about dev, databases, and cloud — instant explore</p>
+        <button class="btn" id="sample-btn" style="width:100%;font-size:13px;padding:8px;background:#0d9488" onclick="loadSampleData()">Load Sample Data</button>
+      </div>
+    </div>
+
+    <p style="color:#475569;font-size:12px;text-align:center;">
+      You can also use the Ingest tab to point to a directory of files, or close this and explore the empty UI.
+    </p>
+    <div style="text-align:right;margin-top:16px;">
+      <button onclick="document.getElementById('welcome-modal').style.display='none'" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:13px;">Close and explore →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Custom confirm modal (replaces window.confirm) -->
+<div id="confirm-modal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:1050;align-items:center;justify-content:center;">
+  <div style="background:#1e293b;border:1px solid #475569;border-radius:12px;padding:28px 24px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+    <div id="confirm-msg" style="color:#f1f5f9;font-size:15px;line-height:1.5;margin-bottom:24px;"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="confirmCancel()" style="background:#334155;color:#e2e8f0;border:none;padding:9px 20px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>
+      <button id="confirm-ok-btn" style="background:#dc2626;color:white;border:none;padding:9px 20px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600;">Delete</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const BASE = 'http://127.0.0.1:8100';
+let activeTier = null;
+let chatHistory = [];
+let memPage = 1;
+let statusFailCount = 0;
+let _confirmCallback = null;
+let _undoMemId = null;
+let _undoInterval = null;
+let _historyVisible = false;
 
-function toast(msg) {
+// ── Toast ──────────────────────────────────────────────────────────────────────
+function toast(msg, isErr=false) {
   const t = document.getElementById('toast');
   t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3000);
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 3500);
 }
 
+// ── Views ──────────────────────────────────────────────────────────────────────
+function showView(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (name === 'memories') loadMemories(1);
+  if (name === 'settings') loadSettings();
+  if (name === 'chat') loadChatProvider();
+}
+
+// ── Status sidebar ─────────────────────────────────────────────────────────────
 async function loadStatus() {
-  const r = await fetch(BASE + '/api/status');
-  const d = await r.json();
+  try {
+    const r = await fetch(BASE + '/api/status');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
 
-  // Services
-  document.getElementById('services').innerHTML = d.services.map(s =>
-    '<span class="' + (s.healthy ? 'ok' : 'fail') + '">' +
-    (s.healthy ? '✅' : '⚠️') + ' ' + s.name +
-    (s.detail ? ' (' + s.detail + ')' : '') +
-    '</span>'
-  ).join('');
+    document.getElementById('services').innerHTML = d.services.map(s =>
+      '<div class="svc-item"><div class="dot ' + (s.healthy ? 'ok' : 'fail') + '"></div><span>' + s.name + '</span>' +
+      (s.detail && !s.healthy ? '<span style="color:#64748b;font-size:10px;margin-left:auto" title="' + s.detail + '">⚠</span>' : '') +
+      '</div>'
+    ).join('');
 
-  // Stats
-  const st = d.stats;
-  const cards = [
-    [st.memories, 'Memories'],
-    [st.segments, 'Segments'],
-    [(st.messages || 0).toLocaleString(), 'Messages'],
-    [st.embeddings, 'Embeddings'],
-    [st.conversations, 'Conversations'],
-    [st.sources, 'Sources'],
-    [st.tombstoned_memories, 'Tombstoned'],
-    ['<10ms', 'Tier1 Latency'],
-  ];
-  document.getElementById('stats').innerHTML = cards.map(([v, l]) =>
-    '<div class="card"><div class="val">' + v + '</div><div class="lbl">' + l + '</div></div>'
-  ).join('');
+    const st = d.stats;
+    const cards = [
+      [st.memories, 'Memories'], [st.segments, 'Segments'],
+      [st.embeddings, 'Embeddings'], [st.sources, 'Sources'],
+      [(st.conversations||0).toLocaleString(), 'Convos'],
+      [(st.messages||0).toLocaleString(), 'Messages'],
+      [st.tombstoned_memories, 'Tombstoned'], ['<10ms', 'T1 Latency'],
+    ];
+    document.getElementById('stats').innerHTML = cards.map(([v,l]) =>
+      '<div class="stat-card"><div class="val">' + v + '</div><div class="lbl">' + l + '</div></div>'
+    ).join('');
 
-  // Pipeline health
-  const ph = d.pipeline_health;
-  if (ph) {
-    const pct = ph.total > 0 ? Math.round(ph.done / ph.total * 100) : 0;
+    const ph = d.pipeline_health || {};
+    const pct = ph.total > 0 ? Math.round(ph.done / ph.total * 100) : 100;
     document.getElementById('pipeline-health').innerHTML =
-      '<span class="ok">✅ Done: ' + ph.done + '</span>' +
-      (ph.running > 0 ? '<span style="background:#1e3a5f;color:#7dd3fc;padding:5px 14px;border-radius:20px;font-size:12px">⚙️ Running: ' + ph.running + '</span>' : '') +
-      (ph.pending > 0 ? '<span style="background:#1e293b;color:#94a3b8;padding:5px 14px;border-radius:20px;font-size:12px">⏳ Pending: ' + ph.pending + '</span>' : '') +
-      (ph.failed > 0 ? '<span class="fail">⚠️ Failed: ' + ph.failed + '</span>' : '') +
-      '<span style="background:#1e293b;color:#64748b;padding:5px 14px;border-radius:20px;font-size:12px">' + pct + '% complete</span>';
-  } else {
-    document.getElementById('pipeline-health').innerHTML = '<span style="color:#475569">N/A</span>';
+      '<div style="margin-bottom:4px">✅ Done: <b>' + (ph.done||0) + '</b>' +
+      (ph.running ? '&nbsp;&nbsp;⚙ Running: <b style="color:#7dd3fc">' + ph.running + '</b>' : '') +
+      (ph.failed ? '&nbsp;&nbsp;⚠ Failed: <b style="color:#fca5a5">' + ph.failed + '</b>' : '') + '</div>' +
+      '<div style="background:#334155;border-radius:4px;height:4px"><div style="background:#38bdf8;height:4px;border-radius:4px;width:' + pct + '%"></div></div>' +
+      '<div style="color:#475569;font-size:10px;margin-top:3px">' + pct + '% complete</div>';
+    statusFailCount = 0;
+
+    // Show welcome overlay on first run (no data yet)
+    if (st.sources === 0 && st.memories === 0 && !sessionStorage.getItem('mw_welcome_dismissed')) {
+      const wm = document.getElementById('welcome-modal');
+      if (wm.style.display === 'none' || !wm.style.display) {
+        wm.style.display = 'flex';
+        // Populate service health in welcome modal
+        document.getElementById('welcome-services').innerHTML = d.services.map(s =>
+          '<div style="display:flex;align-items:center;gap:8px;font-size:13px;">' +
+          '<span style="width:8px;height:8px;border-radius:50%;background:' + (s.healthy ? '#34d399' : '#fbbf24') + ';flex-shrink:0;display:inline-block"></span>' +
+          '<span style="color:' + (s.healthy ? '#e2e8f0' : '#94a3b8') + '">' + s.name + '</span>' +
+          (!s.healthy && s.detail ? '<span style="color:#64748b;font-size:11px;margin-left:auto">' + s.detail + '</span>' : '') +
+          '</div>'
+        ).join('');
+      }
+    }
+  } catch(e) {
+    statusFailCount++;
+    // Only show "unreachable" after 2+ consecutive failures to avoid transient blips
+    if (statusFailCount >= 2) {
+      document.getElementById('services').innerHTML = '<div style="color:#fca5a5;font-size:12px">Server unreachable</div>';
+    }
   }
 }
 
+// ── Welcome overlay helpers ─────────────────────────────────────────────────────
+function dismissWelcome() {
+  sessionStorage.setItem('mw_welcome_dismissed', '1');
+  document.getElementById('welcome-modal').style.display = 'none';
+}
+
+async function loadSampleData() {
+  const btn = document.getElementById('sample-btn');
+  btn.disabled = true;
+  btn.textContent = 'Loading…';
+  try {
+    const r = await fetch(BASE + '/api/ingest/sample', { method: 'POST' });
+    const d = await r.json();
+    if (d.skipped) {
+      btn.textContent = 'Already loaded';
+      setTimeout(dismissWelcome, 800);
+    } else {
+      btn.textContent = '✅ Queued! Processing…';
+      btn.style.background = '#059669';
+      setTimeout(() => { dismissWelcome(); loadStatus(); }, 2000);
+    }
+  } catch(e) {
+    btn.textContent = 'Failed — is Celery running?';
+    btn.disabled = false;
+  }
+}
+
+async function welcomeUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const btn = input.nextElementSibling;
+  btn.disabled = true;
+  btn.textContent = 'Uploading…';
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const r = await fetch(BASE + '/api/ingest/upload', { method: 'POST', body: fd });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail || 'Upload failed'); }
+    const d = await r.json();
+    btn.textContent = '✅ Uploaded! Processing…';
+    btn.style.background = '#059669';
+    setTimeout(() => { dismissWelcome(); loadStatus(); }, 2000);
+  } catch(e) {
+    btn.textContent = 'Upload failed: ' + e.message;
+    btn.disabled = false;
+  }
+}
+
+// ── Tier selector ──────────────────────────────────────────────────────────────
+function setTier(tier, btn) {
+  activeTier = tier;
+  document.querySelectorAll('.tier-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── Search ─────────────────────────────────────────────────────────────────────
 async function doSearch() {
   const q = document.getElementById('query').value.trim();
-  if (!q) return;
-  // Recreate loading state each search so we don't depend on a prior DOM node.
-  document.getElementById('results-panel').innerHTML = '<div id="loading">Searching…</div>';
+  if (!q) {
+    document.getElementById('results-panel').innerHTML = '<div class="spinner">Enter a query and press Search</div>';
+    return;
+  }
+  const btn = document.getElementById('search-btn');
+  btn.disabled = true;
+  document.getElementById('results-panel').innerHTML = '<div class="spinner">Searching…</div>';
 
-  const r = await fetch(BASE + '/api/search', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: q, k: 8 })
-  });
-  const d = await r.json();
+  try {
+    const body = { query: q, k: 10 };
+    if (activeTier !== null) body.force_tier = activeTier;
+    const r = await fetch(BASE + '/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) throw new Error('Server returned ' + r.status);
+    const d = await r.json();
+    renderSearchResults(d);
+  } catch(e) {
+    document.getElementById('results-panel').innerHTML =
+      '<div class="error-msg">❌ Search failed: ' + e.message + '<br><small>Is the server running at ' + BASE + '?</small></div>';
+  } finally {
+    btn.disabled = false;
+  }
+}
 
+function renderSearchResults(d) {
   let html = '<div class="results-header">';
-  html += '<strong style="color:#f1f5f9">' + d.total + ' results</strong>';
-  html += '<span class="timing">' + d.latency_ms + 'ms</span>';
-  html += d.tiers_used.map(t => '<span class="tier-badge">Tier ' + t + '</span>').join('');
+  html += '<strong style="color:#f1f5f9">' + d.total + ' result' + (d.total!==1?'s':'') + '</strong>';
+  html += '<span class="timing">' + (d.latency_ms||0).toFixed(1) + 'ms</span>';
+  (d.tiers_used||[]).forEach(t => { html += '<span class="tier-badge t' + t + '">Tier ' + t + '</span>'; });
   html += '</div>';
 
   if (!d.results || d.results.length === 0) {
     html += '<div class="empty">No results found.</div>';
   } else {
+    const maxScore = Math.max(...d.results.map(r => r.score || 0));
+    if (maxScore < 0.35) {
+      html += '<div style="color:#fbbf24;font-size:12px;padding:8px 16px;background:#1c1917;border-bottom:1px solid #334155">⚠ Low confidence — best match score ' + maxScore.toFixed(2) + '. Results are approximate.</div>';
+    }
     d.results.forEach(function(res) {
+      const tid = res.id || 0;
       html += '<div class="result">';
-      html += '<span class="score">score: ' + (res.score || 0).toFixed(2) + '</span>';
-      html += '<div class="fact">' + (res.content || '') + '</div>';
+      html += '<div class="result-top">';
+      html += '<div class="fact">' + escHtml(res.content || '') + '</div>';
+      html += '<div class="result-meta">';
+      html += '<span class="tier-badge t' + res.tier + '">T' + res.tier + '</span>';
+      html += '<span class="score-badge">' + (res.score||0).toFixed(2) + '</span>';
+      if (res.result_type === 'memory') {
+        html += '<button class="helpful-btn" id="hb-' + tid + '" onclick="markHelpful(' + tid + ')">👍 Helpful</button>';
+      }
+      html += '</div></div>';
 
       if (res.tags && res.tags.length) {
         html += '<div class="tags">';
-        res.tags.forEach(function(t) {
-          html += '<span class="tag ' + t.axis + '">' + t.axis + ': ' + t.value + '</span>';
-        });
+        res.tags.forEach(t => { html += '<span class="tag ' + (t.axis||'default') + '">' + t.axis + ': ' + escHtml(t.value) + '</span>'; });
         html += '</div>';
       }
-
       if (res.provenance && res.provenance.length) {
         const p = res.provenance[0];
-        const fname = (p.source_path || '').split('\\').pop() || 'unknown';
-        html += '<div class="prov">📎 ' + fname;
-        if (p.char_offset_start != null) {
-          html += ' &nbsp;·&nbsp; offset ' + p.char_offset_start.toLocaleString();
-        }
-        if (p.segment_id) {
-          html += ' &nbsp;·&nbsp; segment #' + p.segment_id;
-        }
+        const fname = (p.source_path||'').split(/[\\/]/).pop() || 'unknown';
+        html += '<div class="prov">📎 ' + escHtml(fname);
+        if (p.char_offset_start != null) html += ' · offset ' + p.char_offset_start.toLocaleString();
+        if (p.segment_id) html += ' · seg #' + p.segment_id;
         html += '</div>';
       }
-
       html += '</div>';
     });
   }
-
   document.getElementById('results-panel').innerHTML = html;
 }
 
-// Load on start
-loadStatus().then(doSearch).catch(console.error);
+async function markHelpful(memId) {
+  try {
+    await fetch(BASE + '/api/memories/' + memId + '/helpful', { method: 'POST' });
+    const btn = document.getElementById('hb-' + memId);
+    if (btn) { btn.classList.add('voted'); btn.textContent = '✅ Thanks!'; btn.disabled = true; }
+    toast('Memory marked helpful!');
+  } catch(e) { toast('Failed: ' + e.message, true); }
+}
 
-// Auto-refresh stats every 30s
+// ── Memory Browser ─────────────────────────────────────────────────────────────
+async function loadMemories(page) {
+  memPage = page || 1;
+  const cat = document.getElementById('mem-category').value;
+  const imp = document.getElementById('mem-importance').value;
+  let url = BASE + '/api/memories?page=' + memPage + '&page_size=20';
+  if (cat) url += '&category=' + encodeURIComponent(cat);
+  if (imp) url += '&importance=' + encodeURIComponent(imp);
+
+  document.getElementById('mem-list').innerHTML = '<div class="spinner">Loading…</div>';
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    // API returns {total, page, page_size, items} — extract items array
+    const items = Array.isArray(d) ? d : (d.items || []);
+    renderMemories(items, d.total || items.length);
+  } catch(e) {
+    document.getElementById('mem-list').innerHTML = '<div class="error-msg">❌ ' + e.message + '</div>';
+  }
+}
+
+function renderMemories(items, total) {
+  if (!items || items.length === 0) {
+    document.getElementById('mem-list').innerHTML = '<div class="empty">No memories found.</div>';
+    document.getElementById('mem-pagination').innerHTML = '';
+    return;
+  }
+  const html = items.map(m => {
+    const tags = (m.tags||[]).slice(0,4).map(t =>
+      '<span class="tag ' + (t.axis||'default') + '">' + escHtml(t.value) + '</span>'
+    ).join('');
+    return '<div class="mem-card">' +
+      '<div class="mem-header">' +
+      '<span class="mem-id" onclick="toggleProv(' + m.id + ')">#' + m.id + ' — expand provenance</span>' +
+      '<button class="delete-btn" onclick="deleteMem(' + m.id + ')">🗑 Delete</button>' +
+      '</div>' +
+      '<div class="mem-content">' + escHtml(m.fact || m.content || '') + '</div>' +
+      (tags ? '<div class="tags">' + tags + '</div>' : '') +
+      '<div class="mem-footer">' +
+      '<span class="utility">utility: ' + ((m.utility_score||0)*100).toFixed(0) + '%</span>' +
+      '<button class="helpful-btn" onclick="markHelpfulMem(' + m.id + ')">👍 Helpful</button>' +
+      '</div>' +
+      '<div id="prov-' + m.id + '" class="prov-detail">Loading…</div>' +
+      '</div>';
+  }).join('');
+  document.getElementById('mem-list').innerHTML = html;
+
+  // Pagination
+  const totalPages = Math.ceil((total || items.length) / 20);
+  let pg = '';
+  if (memPage > 1) pg += '<button class="page-btn" onclick="loadMemories(' + (memPage-1) + ')">← Prev</button>';
+  pg += '<span style="color:#64748b;font-size:13px">Page ' + memPage + (totalPages > 1 ? ' / ' + totalPages : '') + '</span>';
+  if (memPage < totalPages) pg += '<button class="page-btn" onclick="loadMemories(' + (memPage+1) + ')">Next →</button>';
+  document.getElementById('mem-pagination').innerHTML = pg;
+}
+
+async function toggleProv(id) {
+  const el = document.getElementById('prov-' + id);
+  if (el.classList.toggle('open') && el.textContent === 'Loading…') {
+    try {
+      const r = await fetch(BASE + '/api/memories/' + id);
+      const d = await r.json();
+      const p = (d.provenance||[]);
+      el.innerHTML = p.length
+        ? p.map(x => '📎 ' + escHtml(x.source_path||'?') + ' · seg#' + (x.segment_id||'?') + ' · msg#' + (x.message_id||'?')).join('<br>')
+        : 'No provenance data.';
+    } catch(e) { el.textContent = 'Error: ' + e.message; }
+  }
+}
+
+function deleteMem(id) {
+  showConfirm('Delete memory #' + id + '?\nYou\'ll have 30 seconds to undo.', async () => {
+    try {
+      const r = await fetch(BASE + '/api/memories/' + id, { method: 'DELETE' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      loadMemories(memPage);
+      if (_historyVisible) loadDeleteHistory();
+      startUndoCountdown(id, d.fact_preview || ('Memory #' + id));
+    } catch(e) { toast('Delete failed: ' + e.message, true); }
+  });
+}
+
+function startUndoCountdown(memId, factPreview) {
+  if (_undoInterval) clearInterval(_undoInterval);
+  _undoMemId = memId;
+  let secs = 30;
+  const bar = document.getElementById('undo-toast');
+  document.getElementById('undo-msg').textContent = '\u201c' + factPreview.slice(0, 50) + (factPreview.length > 50 ? '\u2026' : '') + '\u201d deleted';
+  document.getElementById('undo-countdown').textContent = secs + 's';
+  bar.style.display = 'flex';
+  _undoInterval = setInterval(() => {
+    secs--;
+    const cd = document.getElementById('undo-countdown');
+    if (cd) cd.textContent = secs + 's';
+    if (secs <= 0) {
+      clearInterval(_undoInterval);
+      _undoInterval = null;
+      _undoMemId = null;
+      bar.style.display = 'none';
+    }
+  }, 1000);
+}
+
+async function undoDelete() {
+  if (!_undoMemId) return;
+  clearInterval(_undoInterval);
+  _undoInterval = null;
+  const id = _undoMemId;
+  _undoMemId = null;
+  document.getElementById('undo-toast').style.display = 'none';
+  try {
+    const r = await fetch(BASE + '/api/retain/restore/memory/' + id, { method: 'POST' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    toast('Memory #' + id + ' restored!');
+    loadMemories(memPage);
+    if (_historyVisible) loadDeleteHistory();
+  } catch(e) { toast('Restore failed: ' + e.message, true); }
+}
+
+async function toggleDeleteHistory() {
+  _historyVisible = !_historyVisible;
+  const panel = document.getElementById('delete-history-panel');
+  const btn = document.getElementById('history-toggle-btn');
+  panel.style.display = _historyVisible ? 'block' : 'none';
+  btn.style.background = _historyVisible ? '#0284c7' : '#334155';
+  if (_historyVisible) loadDeleteHistory();
+}
+
+async function loadDeleteHistory() {
+  const el = document.getElementById('delete-history-list');
+  try {
+    const r = await fetch(BASE + '/api/retain/log?limit=30');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const entries = await r.json();
+    const deletes = entries.filter(e => e.action === 'user_delete');
+    if (!deletes.length) {
+      el.innerHTML = '<div class="empty" style="padding:12px 0">No deletions recorded yet.</div>';
+      return;
+    }
+    el.innerHTML = deletes.map(e => {
+      const ids = (e.target_ids && e.target_ids.ids) || [];
+      const memId = ids[0];
+      const fact = (e.target_ids && e.target_ids.fact) || e.reason || '';
+      const ts = e.created_at ? new Date(e.created_at).toLocaleString() : '?';
+      return '<div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid #1e293b;">' +
+        '<div style="flex:1;min-width:0;">' +
+        '<div style="color:#94a3b8;font-size:11px;margin-bottom:3px;">' + ts + ' &nbsp;·&nbsp; Memory #' + (memId || '?') + '</div>' +
+        '<div style="color:#cbd5e1;font-size:13px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(fact) + '">' + escHtml(fact.slice(0, 100)) + (fact.length > 100 ? '…' : '') + '</div>' +
+        '</div>' +
+        (memId ? '<button onclick="restoreFromLog(' + memId + ', this)" style="background:#0284c7;color:white;border:none;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:12px;white-space:nowrap;flex-shrink:0">↩ Restore</button>' : '') +
+        '</div>';
+    }).join('');
+  } catch(e) {
+    el.innerHTML = '<div class="error-msg" style="padding:8px 0">❌ ' + e.message + '</div>';
+  }
+}
+
+async function restoreFromLog(memId, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Restoring…';
+  try {
+    const r = await fetch(BASE + '/api/retain/restore/memory/' + memId, { method: 'POST' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    toast('Memory #' + memId + ' restored!');
+    btn.textContent = '✅ Restored';
+    btn.style.background = '#065f46';
+    loadMemories(memPage);
+  } catch(e) {
+    toast('Restore failed: ' + e.message, true);
+    btn.disabled = false;
+    btn.textContent = '↩ Restore';
+  }
+}
+
+function showConfirm(msg, onOk) {
+  _confirmCallback = onOk;
+  document.getElementById('confirm-msg').textContent = msg;
+  const modal = document.getElementById('confirm-modal');
+  modal.style.display = 'flex';
+  document.getElementById('confirm-ok-btn').onclick = confirmOk;
+}
+
+function confirmCancel() {
+  document.getElementById('confirm-modal').style.display = 'none';
+  _confirmCallback = null;
+}
+
+function confirmOk() {
+  document.getElementById('confirm-modal').style.display = 'none';
+  if (_confirmCallback) { const cb = _confirmCallback; _confirmCallback = null; cb(); }
+}
+
+async function markHelpfulMem(id) {
+  try {
+    await fetch(BASE + '/api/memories/' + id + '/helpful', { method: 'POST' });
+    toast('Marked helpful!');
+  } catch(e) { toast('Failed: ' + e.message, true); }
+}
+
+// ── Chat ───────────────────────────────────────────────────────────────────────
+async function loadChatProvider() {
+  try {
+    const r = await fetch(BASE + '/api/settings');
+    const d = await r.json();
+    document.getElementById('chat-provider-label').textContent = d.provider || 'ollama';
+  } catch(e) {}
+}
+
+function appendMsg(role, content) {
+  const el = document.createElement('div');
+  el.className = 'msg ' + role;
+  el.textContent = content;
+  document.getElementById('chat-history').appendChild(el);
+  el.scrollIntoView({ behavior: 'smooth' });
+  return el;
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  input.style.height = '';
+
+  appendMsg('user', msg);
+  chatHistory.push({ role: 'user', content: msg });
+
+  const btn = document.getElementById('chat-btn');
+  btn.disabled = true;
+  const thinking = appendMsg('assistant', '…thinking…');
+
+  try {
+    const r = await fetch(BASE + '/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg, history: chatHistory.slice(-10) })
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    thinking.textContent = d.reply;
+    chatHistory.push({ role: 'assistant', content: d.reply });
+    document.getElementById('chat-mem-count').textContent =
+      d.memories_used + ' memor' + (d.memories_used===1?'y':'ies') + ' used · ' + d.provider_used;
+  } catch(e) {
+    thinking.textContent = '❌ Error: ' + e.message;
+    thinking.style.color = '#fca5a5';
+  } finally {
+    btn.disabled = false;
+    input.focus();
+  }
+}
+
+// ── Settings ───────────────────────────────────────────────────────────────────
+async function loadSettings() {
+  try {
+    const r = await fetch(BASE + '/api/settings');
+    const d = await r.json();
+    document.getElementById('s-provider').value = d.provider || 'ollama';
+    document.getElementById('s-ollama-model').value = d.ollama_model || 'qwen2.5-coder:32b';
+    if (d.claude_api_key_masked) document.getElementById('s-claude-hint').textContent = 'Current key: ' + d.claude_api_key_masked;
+    if (d.openai_api_key_masked) document.getElementById('s-openai-hint').textContent = 'Current key: ' + d.openai_api_key_masked;
+    onProviderChange();
+  } catch(e) {}
+}
+
+function onProviderChange() {
+  const p = document.getElementById('s-provider').value;
+  document.getElementById('s-ollama-group').style.display = p === 'ollama' ? '' : 'none';
+  document.getElementById('s-claude-group').style.display = p === 'claude' ? '' : 'none';
+  document.getElementById('s-openai-group').style.display = p === 'openai' ? '' : 'none';
+}
+
+async function saveSettings() {
+  const btn = document.querySelector('.save-btn');
+  const origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const p = document.getElementById('s-provider').value;
+  const body = { provider: p };
+  if (p === 'ollama') {
+    body.ollama_model = document.getElementById('s-ollama-model').value;
+    body.model = body.ollama_model;
+  } else if (p === 'claude') {
+    const k = document.getElementById('s-claude-key').value.trim();
+    if (k) body.claude_api_key = k;
+    body.model = document.getElementById('s-claude-model').value;
+  } else if (p === 'openai') {
+    const k = document.getElementById('s-openai-key').value.trim();
+    if (k) body.openai_api_key = k;
+    body.model = document.getElementById('s-openai-model').value;
+  }
+  try {
+    const r = await fetch(BASE + '/api/settings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    btn.textContent = '✅ Saved!';
+    btn.style.background = '#065f46';
+    toast('Settings saved!');
+    loadChatProvider();
+    setTimeout(() => {
+      btn.textContent = origText;
+      btn.style.background = '';
+      btn.disabled = false;
+    }, 2500);
+  } catch(e) {
+    btn.textContent = '❌ Failed';
+    btn.style.background = '#7f1d1d';
+    toast('Save failed: ' + e.message, true);
+    setTimeout(() => {
+      btn.textContent = origText;
+      btn.style.background = '';
+      btn.disabled = false;
+    }, 2500);
+  }
+}
+
+// ── Utility ────────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+loadStatus();
 setInterval(loadStatus, 30000);
 </script>
 </body>

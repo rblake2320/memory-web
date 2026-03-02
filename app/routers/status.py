@@ -132,6 +132,12 @@ def rebuild_embeddings():
     return {"ok": True, "segments_embedded": seg_count, "memories_embedded": mem_count}
 
 
+@router.get("/health")
+def get_health():
+    """Minimal health check — returns 200 if the app is running."""
+    return {"status": "ok", "version": "0.1.0"}
+
+
 @router.get("/status", response_model=StatusResponse)
 def get_status():
     """Health check for all services + DB statistics."""

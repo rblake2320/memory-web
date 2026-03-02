@@ -1,0 +1,10 @@
+# CPU-only override — removes GPU reservation from Ollama
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.cpu.yml up
+#
+# This lets users without an NVIDIA GPU still run Ollama (slower inference).
+
+services:
+  ollama:
+    deploy: {}

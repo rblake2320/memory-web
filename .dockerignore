@@ -1,0 +1,43 @@
+# Version control
+.git/
+.gitignore
+
+# Python virtual environment (installed inside image instead)
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Secrets and local config
+.env
+.env.local
+*.env.local
+
+# Runtime artifacts
+logs/
+*.log
+data/uploads/
+
+# Test artifacts
+tests/
+.pytest_cache/
+test_memoryweb.db
+
+# Windows-specific startup scripts (not needed in container)
+*.ps1
+*.bat
+start_all.ps1
+restart_mw.ps1
+setup.bat
+
+# Documentation
+README.md
+*.md
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,116 @@
+services:
+
+  # ── PostgreSQL with pgvector pre-installed ────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: memoryweb
+      POSTGRES_USER: memoryweb
+      POSTGRES_PASSWORD: ${MW_DB_PASSWORD:-memoryweb}
+    volumes:
+      - mw_pgdata:/var/lib/postgresql/data
+    ports:
+      - "${MW_PG_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U memoryweb -d memoryweb"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Redis (Celery broker + result backend) ────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - mw_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Ollama (local LLM for pipeline) ──────────────────────────────────────
+  # GPU users: works out of the box with NVIDIA Container Toolkit installed
+  # CPU users: use  docker compose -f docker-compose.yml -f docker-compose.cpu.yml up
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - mw_ollama:/root/.ollama
+    ports:
+      - "${MW_OLLAMA_PORT:-11434}:11434"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # ── MemoryWeb API + dashboard ─────────────────────────────────────────────
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${MW_PORT:-8100}:8100"
+    environment:
+      MW_DATABASE_URL: postgresql://memoryweb:${MW_DB_PASSWORD:-memoryweb}@postgres:5432/memoryweb
+      MW_REDIS_URL: redis://redis:6379/1
+      MW_CELERY_BROKER_URL: redis://redis:6379/1
+      MW_CELERY_RESULT_BACKEND: redis://redis:6379/1
+      MW_OLLAMA_BASE_URL: http://ollama:11434
+      MW_OLLAMA_MODEL: ${MW_OLLAMA_MODEL:-llama3.2:3b}
+      MW_EMBED_MODEL: ${MW_EMBED_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      MW_PORT: "8100"
+      MW_API_KEY: ${MW_API_KEY:-}
+      MW_CORS_ORIGINS: ${MW_CORS_ORIGINS:-*}
+    volumes:
+      - mw_data:/app/data
+      - mw_models:/root/.cache/torch/sentence_transformers
+      - mw_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8100/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  # ── Celery worker (async pipeline processing) ─────────────────────────────
+  celery:
+    build: .
+    restart: unless-stopped
+    command: python -m celery -A app.celery_app worker -P threads --concurrency=4 -l info
+    environment:
+      MW_DATABASE_URL: postgresql://memoryweb:${MW_DB_PASSWORD:-memoryweb}@postgres:5432/memoryweb
+      MW_REDIS_URL: redis://redis:6379/1
+      MW_CELERY_BROKER_URL: redis://redis:6379/1
+      MW_CELERY_RESULT_BACKEND: redis://redis:6379/1
+      MW_OLLAMA_BASE_URL: http://ollama:11434
+      MW_OLLAMA_MODEL: ${MW_OLLAMA_MODEL:-llama3.2:3b}
+      MW_EMBED_MODEL: ${MW_EMBED_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+    volumes:
+      - mw_data:/app/data
+      - mw_models:/root/.cache/torch/sentence_transformers
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  mw_pgdata:      # PostgreSQL data
+  mw_redis:       # Redis persistence
+  mw_ollama:      # Ollama model weights
+  mw_data:        # Uploaded files
+  mw_models:      # sentence-transformers model cache
+  mw_logs:        # Application logs

@@ -25,7 +25,7 @@ def _check_pgvector_in_db() -> bool:
         import psycopg2
         db_url = _os.environ.get(
             "MW_DATABASE_URL",
-            "postgresql://postgres:%3FBooker78%21@localhost:5432/postgres",
+            "postgresql://memoryweb:memoryweb@localhost:5432/memoryweb",
         )
         # urllib.parse.unquote for %3F → ?
         from urllib.parse import unquote

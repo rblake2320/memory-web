@@ -4,6 +4,8 @@ from fastapi import APIRouter, Body, Query
 from pydantic import BaseModel
 from typing import Optional
 
+from ..database import db_session
+from ..models import RetentionLog
 from ..schemas import PurgeRequest, RetentionResult
 from ..services import retention as ret_svc
 
@@ -40,6 +42,30 @@ def list_tombstoned():
 @router.post("/restore/{target_type}/{target_id}", summary="Restore (un-tombstone) a record")
 def restore(target_type: str, target_id: int):
     return ret_svc.restore(target_type, target_id)
+
+
+@router.get("/log", summary="Recent retention log entries")
+def get_retention_log(limit: int = Query(default=50, le=200)):
+    """Return recent entries from the retention_log table, newest first."""
+    with db_session() as db:
+        entries = (
+            db.query(RetentionLog)
+            .order_by(RetentionLog.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+        return [
+            {
+                "id": e.id,
+                "action": e.action,
+                "target_type": e.target_type,
+                "target_ids": e.target_ids,
+                "reason": e.reason,
+                "triggered_by": e.triggered_by,
+                "created_at": e.created_at.isoformat() if e.created_at else None,
+            }
+            for e in entries
+        ]
 
 
 @router.post("/purge", summary="Hard-delete old tombstoned records")

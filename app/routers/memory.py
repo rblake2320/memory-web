@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..database import db_session
 from ..deps import get_db
-from ..models import Conversation, Memory, MemoryProvenance, Message, Segment, Source, Tag
+from ..models import Conversation, Embedding, EmbeddingQueue, Memory, MemoryLink, MemoryProvenance, Message, RetentionLog, Segment, Source, Tag
 from ..schemas import (
     ConversationOut,
     MemoryListResponse,
@@ -114,15 +114,28 @@ def mark_memory_helpful(memory_id: int, db: Session = Depends(get_db)):
 @router.delete("/memories/{memory_id}")
 def delete_memory(memory_id: int, db: Session = Depends(get_db)):
     """
-    Hard-delete a memory and its provenance links. Irreversible — use tombstone
-    endpoints (/api/retain/*) for soft-delete with restore capability.
+    Soft-delete (tombstone) a memory. Reversible within 30 seconds via
+    POST /api/retain/restore/memory/{id}. Logged to retention_log.
     """
     mem = db.query(Memory).get(memory_id)
     if not mem:
         raise HTTPException(status_code=404, detail="Memory not found")
-    db.delete(mem)
+    if mem.tombstoned_at is not None:
+        raise HTTPException(status_code=410, detail="Memory already deleted")
+
+    fact_preview = (mem.fact or "")[:200]
+    mem.tombstoned_at = datetime.utcnow()
+
+    log = RetentionLog(
+        action="user_delete",
+        target_type="memory",
+        target_ids={"ids": [memory_id], "fact": fact_preview},
+        reason=f"Dashboard delete: {fact_preview}",
+        triggered_by="dashboard",
+    )
+    db.add(log)
     db.commit()
-    return {"deleted": memory_id}
+    return {"tombstoned": memory_id, "fact_preview": fact_preview[:80]}
 
 
 @router.delete("/sources/{source_id}")

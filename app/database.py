@@ -1,8 +1,16 @@
+import re
 from contextlib import contextmanager
 from sqlalchemy import create_engine, text, event
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from .config import settings
 
+# Validate schema name before any SQL is built (prevent injection via config)
+_SCHEMA_RE = re.compile(r'^[a-z_][a-z0-9_]*$')
+if not _SCHEMA_RE.match(settings.MW_DB_SCHEMA):
+    raise ValueError(
+        f"MW_DB_SCHEMA '{settings.MW_DB_SCHEMA}' is invalid. "
+        "Use only lowercase letters, digits, and underscores."
+    )
 
 engine = create_engine(
     settings.MW_DATABASE_URL,
