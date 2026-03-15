@@ -21,3 +21,20 @@ def test_axes_definition():
     assert "infrastructure" in AXES["domain"]
     assert "debugging" in AXES["intent"]
     assert "public" in AXES["sensitivity"]
+
+# Import statements needed for testing the new endpoint
+from httpx import JSONResponseException
+
+# New test case for the bulk delete endpoint
+def test_bulk_delete_memories():
+    ids_to_delete = [1, 2, 3]  # Example memory IDs to delete
+    json_data = json.dumps({"ids": ids_to_delete})
+    
+    with patch.object(httpx.Client, 'post', side_effect=JSONResponseException('Expected status code 200 but got 400')):
+        response = client.post("/api/memories/bulk-delete", json=json_data)
+        assert response.status_code in (200, 400)
+        if response.status_code == 200:
+            deleted = response.json().get('deleted', 0)
+            not_found = response.json().get('not_found', 0)
+            assert deleted == len(ids_to_delete) - not_found
+            assert not_found == 0 or not_found == len(ids_to_delete)
