@@ -51,6 +51,53 @@ def install_extension():
         return False
 
 
+
+# Import statements needed (only new ones not in existing code)
+from fastapi import HTTPException
+from sqlalchemy import select, func
+from ..deps import get_db
+from ..models import Memory, Embedding
+from ..schemas import SearchRequest, SearchResponse
+
+# New endpoint
+@router.post("/api/search", response_model=SearchResponse)
+def search(body: SearchRequest):
+    """Search memories using pgvector cosine similarity on the embeddings table."""
+    db = next(get_db())
+    query = select(Memory.id, Memory.title, Memory.content, Memory.source).\
+        join(Embedding, Memory.id == Embedding.memory_id).\
+        where(func.similarity(Embedding.vector, func.to_vector(body.query, 'vector')) > 0)
+    
+    if body.source_filter:
+        query = query.where(Memory.source == body.source_filter)
+
+    results = db.execute(query).fetchall()
+
+    # Limit results
+    results = results[:body.limit]
+
+    # Calculate cosine similarity for each result
+    similar_results = []
+    for result in results:
+        memory_id, title, content, source = result
+        similarity_score = db.execute(select(func.similarity(Embedding.vector, func.to_vector(body.query, 'vector'))).\
+                                      where(Embedding.memory_id == memory_id)).scalar()
+        similar_results.append({
+            "memory_id": memory_id,
+            "title": title,
+            "content_preview": content[:100],
+            "similarity_score": similarity_score,
+            "source": source
+        })
+
+    return SearchResponse(
+        query=body.query,
+        total=len(results),
+        results=similar_results,
+        tiers_used=["pgvector"],
+        latency_ms=0  # Calculate latency if needed
+    )
+
 if __name__ == "__main__":
     print("Checking pgvector...")
     if check_extension():
