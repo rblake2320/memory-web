@@ -261,3 +261,29 @@ def get_segment_messages(
 
     messages = q.order_by(Message.ordinal).all()
     return [MessageOut.model_validate(m) for m in messages]
+
+from ..schemas import MemoryRecentOut
+from ..models import Memory, Tag
+
+@router.get("/memories/recent", response_model=List[MemoryRecentOut])
+def list_recent_memories(
+    limit: int = Query(default=10, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    """List the N most recently created memories."""
+    items = (
+        db.query(Memory)
+        .order_by(Memory.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        MemoryRecentOut(
+            id=m.id,
+            title=m.title,
+            content=m.content[:200],
+            created_at=m.created_at,
+            tags=[t.name for t in m.tags],
+        )
+        for m in items
+    ]
