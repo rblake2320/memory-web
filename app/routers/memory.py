@@ -261,3 +261,24 @@ def get_segment_messages(
 
     messages = q.order_by(Message.ordinal).all()
     return [MessageOut.model_validate(m) for m in messages]
+
+# Import statements needed (only new ones not in existing code)
+from collections import Counter
+from typing import List
+
+# New function/endpoint/class
+@router.get("/memories/clusters", response_model=List[dict])
+def list_memory_clusters(
+    n: int = Query(default=5, ge=1, le=20),
+    db: Session = Depends(get_db),
+):
+    """List memory clusters by most common tag values."""
+    q = db.query(Memory)
+    tags = [m.tags.split(",")[0] if m.tags else "untagged" for m in q.all()]
+    tag_counts = Counter(tags)
+    top_tags = tag_counts.most_common(n)
+    clusters = []
+    for tag, count in top_tags:
+        sample_ids = [m.id for m in q.filter(Memory.tags.like(f"{tag},%")).limit(3).all()]
+        clusters.append({"cluster_name": tag, "memory_count": count, "sample_ids": sample_ids})
+    return clusters
