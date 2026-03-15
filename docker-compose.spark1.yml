@@ -1,0 +1,51 @@
+# DGX Spark1 override — uses existing host Ollama (already on 0.0.0.0:11434)
+# Usage: docker compose -f docker-compose.yml -f docker-compose.spark1.yml up -d
+
+services:
+  ollama:
+    profiles: ["disabled"]
+
+  app:
+    # 4-worker uvicorn: exploits Spark-1's 20 ARM cores
+    command: >
+      python -m uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8100
+      --workers 4
+      --timeout-keep-alive 30
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      MW_OLLAMA_BASE_URL: http://host.docker.internal:11434
+      MW_OLLAMA_MODEL: ${MW_OLLAMA_MODEL:-qwen2.5:7b}
+    volumes:
+      - mw_data:/app/data
+      - mw_models:/root/.cache/torch/sentence_transformers
+      - mw_logs:/app/logs
+      - /home/rblake2320/.claude/projects:/sessions:ro
+      - /home/rblake2320/ai-business/shared/chat:/shared_chat:ro
+
+  celery:
+    # Increase concurrency from 4 to 8 threads (128GB RAM available)
+    command: python -m celery -A app.celery_app worker -P threads --concurrency=8 -l info
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      MW_OLLAMA_BASE_URL: http://host.docker.internal:11434
+      MW_OLLAMA_MODEL: ${MW_OLLAMA_MODEL:-qwen2.5:7b}
+    volumes:
+      - mw_data:/app/data
+      - mw_models:/root/.cache/torch/sentence_transformers
+      - /home/rblake2320/.claude/projects:/sessions:ro
+      - /home/rblake2320/ai-business/shared/chat:/shared_chat:ro
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+volumes:
+  mw_pgdata:
+  mw_redis:
+  mw_data:
+  mw_models:
+  mw_logs:

@@ -157,10 +157,10 @@ def parse_session_file(path: str) -> ParsedConversation:
 
 
 def iter_session_files(directory: str) -> Iterator[Path]:
-    """Yield all .jsonl files in the given directory (non-recursive)."""
+    """Yield all .jsonl files in directory tree (recursive — Claude nests sessions in subdirs)."""
     d = Path(directory)
     if not d.exists():
         logger.warning("Sessions directory not found: %s", directory)
         return
-    for f in sorted(d.glob("*.jsonl")):
+    for f in sorted(d.rglob("*.jsonl")):
         yield f

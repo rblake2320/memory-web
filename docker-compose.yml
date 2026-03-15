@@ -75,6 +75,7 @@ services:
       - mw_data:/app/data
       - mw_models:/root/.cache/torch/sentence_transformers
       - mw_logs:/app/logs
+      - /tmp/mw_sessions:/tmp/mw_sessions
     depends_on:
       postgres:
         condition: service_healthy
@@ -101,7 +102,8 @@ services:
       MW_OLLAMA_MODEL: ${MW_OLLAMA_MODEL:-llama3.2:3b}
       MW_EMBED_MODEL: ${MW_EMBED_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
     volumes:
-      - mw_data:/app/data
+      - mw_models:/root/.cache/torch/sentence_transformers
+      - /tmp/mw_sessions:/tmp/mw_sessions
       - mw_models:/root/.cache/torch/sentence_transformers
     depends_on:
       app:
