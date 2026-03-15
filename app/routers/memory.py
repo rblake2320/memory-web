@@ -261,3 +261,23 @@ def get_segment_messages(
 
     messages = q.order_by(Message.ordinal).all()
     return [MessageOut.model_validate(m) for m in messages]
+
+from datetime import datetime, timedelta
+from fastapi import Query
+
+@router.get("/analytics/memory-growth", response_model=List[dict])
+def get_memory_growth(
+    days: int = Query(default=30, ge=1, le=365),
+    db: Session = Depends(get_db),
+):
+    """Get per-day memory creation counts for last N days."""
+    end_date = datetime.utcnow()
+    start_date = end_date - timedelta(days=days)
+    q = (
+        db.query(db.func.DATE(Memory.created_at).label("date"), db.func.count().label("count"))
+        .filter(Memory.created_at >= start_date)
+        .group_by(db.func.DATE(Memory.created_at))
+        .order_by("date.asc()")
+        .all()
+    )
+    return [{"date": d.date.isoformat(), "count": d.count} for d in q]
