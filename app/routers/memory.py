@@ -261,3 +261,35 @@ def get_segment_messages(
 
     messages = q.order_by(Message.ordinal).all()
     return [MessageOut.model_validate(m) for m in messages]
+
+# Import statements needed (only new ones not in existing code)
+from sqlalchemy import Column, Float
+
+# New endpoint
+@router.patch("/memories/{memory_id}/importance", response_model=MemoryOut)
+def update_memory_importance(
+    memory_id: int, 
+    importance_score: float = Query(..., ge=0.0, le=1.0, description="Importance score between 0.0 and 1.0"),
+    db: Session = Depends(get_db),
+):
+    """Update importance score of a memory."""
+    mem = db.query(Memory).get(memory_id)
+    if not mem:
+        raise HTTPException(status_code=404, detail="Memory not found")
+    
+    # Check if importance_score column exists
+    if not hasattr(Memory, 'importance_score'):
+        # Add importance_score column
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        if not inspector.get_columns('memories'):
+            raise HTTPException(status_code=500, detail="Memories table does not exist")
+        if 'importance_score' not in [c['name'] for c in inspector.get_columns('memories')]:
+            from alembic import op
+            op.add_column('memories', Column('importance_score', Float, nullable=True))
+            db.commit()
+    
+    mem.importance_score = importance_score
+    db.commit()
+    db.refresh(mem)
+    return MemoryOut.model_validate(mem)
