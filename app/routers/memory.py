@@ -261,3 +261,46 @@ def get_segment_messages(
 
     messages = q.order_by(Message.ordinal).all()
     return [MessageOut.model_validate(m) for m in messages]
+
+# Import statements needed (only new ones not in existing code)
+from fastapi import HTTPException
+from ..schemas import MemoryCreate
+
+# New function/endpoint
+@router.post("/memories/bulk", response_model=dict)
+def bulk_create_memories(
+    memories: List[MemoryCreate],
+    db: Session = Depends(get_db),
+):
+    """Create multiple memories in a single database transaction."""
+    if not memories:
+        raise HTTPException(status_code=400, detail="No memories provided")
+    
+    created = 0
+    ids = []
+    try:
+        for mem in memories:
+            existing = db.query(Memory).filter(Memory.fact_hash == _fact_hash(mem.content)).first()
+            if existing:
+                continue
+            new_mem = Memory(
+                title=mem.title,
+                content=mem.content,
+                fact_hash=_fact_hash(mem.content),
+                tags=mem.tags,
+            )
+            db.add(new_mem)
+            db.flush()
+            ids.append(new_mem.id)
+            created += 1
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to create memories") from e
+    
+    return {"created": created, "ids": ids}
+
+def _fact_hash(fact: str) -> str:
+    """Lowercase, strip, collapse whitespace for dedup."""
+    import hashlib
+    return hashlib.sha256(" ".join(fact.lower().split()).encode()).hexdigest()
