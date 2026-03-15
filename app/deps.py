@@ -1,5 +1,11 @@
+"""Dependencies."""
+from fastapi import Depends
 from sqlalchemy.orm import Session
-from .database import get_db
+from app.database import SessionLocal
 
-# re-export for routers
-__all__ = ["get_db", "Session"]
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
