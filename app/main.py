@@ -2,8 +2,10 @@
 MemoryWeb FastAPI application — port 8100.
 """
 
+import asyncio
 import logging
 import logging.handlers
+import time as _time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -40,6 +42,38 @@ _root.addHandler(_console_handler)
 logger = logging.getLogger(__name__)
 
 
+async def _watchdog_embedding_worker():
+    """
+    Phase 1f: Asyncio background task that monitors EmbeddingWorker heartbeat.
+    If no heartbeat for >5 minutes, automatically restarts the worker.
+    Checks every 60 seconds.
+    """
+    STALE_THRESHOLD = embedding_worker.HEARTBEAT_STALE_SECS
+    CHECK_INTERVAL = 60  # seconds
+
+    while True:
+        await asyncio.sleep(CHECK_INTERVAL)
+        try:
+            w = embedding_worker._worker
+            if w is None:
+                logger.warning("EmbeddingWorker is None — restarting")
+                embedding_worker.start_worker()
+            elif not w.is_alive():
+                logger.warning("EmbeddingWorker thread is dead — restarting")
+                embedding_worker.start_worker()
+            else:
+                age = _time.time() - w.last_heartbeat
+                if age > STALE_THRESHOLD:
+                    logger.warning(
+                        "EmbeddingWorker stale (last heartbeat %.0fs ago, threshold=%ds) — restarting",
+                        age, STALE_THRESHOLD,
+                    )
+                    embedding_worker.stop_worker()
+                    embedding_worker.start_worker()
+        except Exception as e:
+            logger.error("EmbeddingWorker watchdog error: %s", e)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup: ensure schema, extensions, tables, and background workers."""
@@ -54,6 +88,11 @@ async def lifespan(app: FastAPI):
     # Start background embedding worker
     embedding_worker.start_worker()
     logger.info("Embedding worker started")
+
+    # Phase 1f: Start embedding worker heartbeat watchdog
+    asyncio.create_task(_watchdog_embedding_worker())
+    logger.info("Embedding worker watchdog started (check_interval=60s, stale_threshold=%ds)",
+                embedding_worker.HEARTBEAT_STALE_SECS)
 
     # Preload sentence-transformers model so Tier 3 first query is fast
     try:

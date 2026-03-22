@@ -80,18 +80,97 @@ def _get_stats() -> StatsOut:
 
 
 def _get_pipeline_health() -> PipelineHealthOut:
+    """
+    Pipeline health + ingestion completeness audit (Phase 2c).
+
+    Reports:
+    - failed_segments: segments that produced 0 memories (possible data loss)
+    - orphaned_conversations: conversations with messages but no segments
+    - embedding_coverage: % of non-tombstoned memories with embeddings
+    - stalled_queue: embedding_queue items stuck in 'running' for >1h
+    - permanently_failed: pipeline runs abandoned after max retries
+    """
+    from ..config import settings as _settings
+    SCHEMA = _settings.MW_DB_SCHEMA
+
     with db_session() as db:
         counts = {
             status: db.query(PipelineRun).filter(PipelineRun.status == status).count()
             for status in ("done", "pending", "running", "failed")
         }
-    total = sum(counts.values())
+        permanently_failed = db.query(PipelineRun).filter(
+            PipelineRun.status == "permanently_failed"
+        ).count()
+
+    total = sum(counts.values()) + permanently_failed
+
+    # Completeness audit queries
+    failed_segments = 0
+    orphaned_conversations = 0
+    embedding_coverage = 0.0
+    stalled_queue = 0
+
+    try:
+        with engine.connect() as conn:
+            # Segments with no memories synthesized (failed_segments)
+            row = conn.execute(text(f"""
+                SELECT COUNT(*) FROM {SCHEMA}.segments s
+                WHERE s.tombstoned_at IS NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM {SCHEMA}.memory_provenance mp
+                      WHERE mp.segment_id = s.id
+                  )
+            """)).fetchone()
+            failed_segments = row[0] if row else 0
+
+            # Conversations with messages but no segments (orphaned_conversations)
+            row = conn.execute(text(f"""
+                SELECT COUNT(*) FROM {SCHEMA}.conversations c
+                WHERE EXISTS (
+                    SELECT 1 FROM {SCHEMA}.messages m
+                    WHERE m.conversation_id = c.id AND m.tombstoned_at IS NULL
+                )
+                AND NOT EXISTS (
+                    SELECT 1 FROM {SCHEMA}.segments s
+                    WHERE s.conversation_id = c.id AND s.tombstoned_at IS NULL
+                )
+            """)).fetchone()
+            orphaned_conversations = row[0] if row else 0
+
+            # Embedding coverage: % of non-tombstoned memories with embeddings
+            row = conn.execute(text(f"""
+                SELECT
+                    COUNT(CASE WHEN e.id IS NOT NULL THEN 1 END)::float /
+                    NULLIF(COUNT(m.id), 0) * 100
+                FROM {SCHEMA}.memories m
+                LEFT JOIN {SCHEMA}.embeddings e
+                    ON e.target_type = 'memory' AND e.target_id = m.id
+                WHERE m.tombstoned_at IS NULL
+            """)).fetchone()
+            embedding_coverage = round(float(row[0]) if row and row[0] else 0.0, 1)
+
+            # Stalled embedding_queue items stuck in 'running' >1h
+            row = conn.execute(text(f"""
+                SELECT COUNT(*) FROM {SCHEMA}.embedding_queue
+                WHERE status = 'running'
+                  AND started_at < now() - interval '1 hour'
+            """)).fetchone()
+            stalled_queue = row[0] if row else 0
+
+    except Exception as e:
+        logger.warning("Completeness audit queries failed: %s", e)
+
     return PipelineHealthOut(
         done=counts["done"],
         pending=counts["pending"],
         running=counts["running"],
         failed=counts["failed"],
         total=total,
+        failed_segments=failed_segments,
+        orphaned_conversations=orphaned_conversations,
+        embedding_coverage=embedding_coverage,
+        stalled_queue=stalled_queue,
+        permanently_failed=permanently_failed,
     )
 
 
@@ -140,7 +219,7 @@ def get_health():
 
 @router.get("/status", response_model=StatusResponse)
 def get_status():
-    """Health check for all services + DB statistics."""
+    """Health check for all services + DB statistics + ingestion completeness audit."""
     services = [
         _check_postgres(),
         _check_pgvector(),

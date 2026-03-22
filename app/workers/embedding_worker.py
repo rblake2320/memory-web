@@ -6,8 +6,14 @@ batches of 50 pending items. Runs as a daemon thread inside the FastAPI process.
 
 Queue entries are created by:
   - memory_synthesizer.py when new Memory rows are committed
-  - segmenter.py when new Segment rows are committed
   - Migration 003 backfill for any existing un-embedded rows
+
+NOTE: Segments are NOT embedded via this queue. They are embedded synchronously
+in pipeline_tasks.run_full_pipeline() via embedder.embed_segments(), which builds
+richer content (summary + messages). The worker only handles memory embeddings.
+
+Phase 1f: Added _last_heartbeat timestamp updated each batch cycle.
+main.py lifespan asyncio task checks heartbeat every 60s and restarts if stale >5min.
 """
 
 import logging
@@ -26,6 +32,7 @@ SCHEMA = settings.MW_DB_SCHEMA
 BATCH_SIZE = 50
 POLL_INTERVAL = 5   # seconds between empty-queue polls
 MAX_ATTEMPTS = 3    # give up after this many failures per item
+HEARTBEAT_STALE_SECS = 300  # 5 minutes — trigger restart if no heartbeat
 
 
 def _get_content(target_type: str, target_id: int) -> Optional[str]:
@@ -66,9 +73,15 @@ class EmbeddingWorker(threading.Thread):
         super().__init__(daemon=True, name="EmbeddingWorker")
         self._model = None
         self._stop = threading.Event()
+        self._last_heartbeat: float = time.time()  # Phase 1f: heartbeat for watchdog
 
     def stop(self):
         self._stop.set()
+
+    @property
+    def last_heartbeat(self) -> float:
+        """Unix timestamp of last completed batch cycle (updated even on empty queue)."""
+        return self._last_heartbeat
 
     def _model_instance(self):
         if self._model is None:
@@ -201,11 +214,13 @@ class EmbeddingWorker(threading.Thread):
         while not self._stop.is_set():
             try:
                 n = self._process_batch()
+                self._last_heartbeat = time.time()  # Phase 1f: update after every cycle
                 if n == 0:
                     # Nothing to do — wait before polling again
                     self._stop.wait(POLL_INTERVAL)
             except Exception as exc:
                 logger.error("EmbeddingWorker unhandled error: %s", exc, exc_info=True)
+                self._last_heartbeat = time.time()  # still alive, just errored
                 self._stop.wait(POLL_INTERVAL)
         logger.info("EmbeddingWorker stopped")
 

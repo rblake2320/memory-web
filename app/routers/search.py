@@ -29,6 +29,7 @@ def full_search(body: SearchRequest):
         filters=body.filters,
         k=body.k,
         include_tombstoned=body.include_tombstoned,
+        include_superseded=body.include_superseded,
         min_tier=body.min_tier,
         force_tier=body.force_tier,
     )

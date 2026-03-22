@@ -68,6 +68,7 @@ class SearchRequest(BaseModel):
     include_tombstoned: bool = False
     min_tier: int = Field(default=1, ge=1, le=3, description="Minimum retrieval tier to use")
     force_tier: Optional[int] = Field(default=None, ge=1, le=3, description="Run exactly this tier only (overrides min_tier)")
+    include_superseded: bool = Field(default=False, description="Include memories invalidated by contradiction detection")
 
 
 class ProvenanceChain(BaseModel):
@@ -114,6 +115,11 @@ class MemoryOut(BaseModel):
     access_count: int = 0
     created_at: Optional[datetime] = None
     tombstoned_at: Optional[datetime]
+    # Temporal validity (Phase 5)
+    valid_from: Optional[datetime] = None
+    valid_until: Optional[datetime] = None
+    superseded_by: Optional[int] = None
+    is_current: bool = True  # True when valid_until IS NULL
 
 
 class MemoryWithProvenance(MemoryOut):
@@ -216,6 +222,12 @@ class PipelineHealthOut(BaseModel):
     running: int
     failed: int
     total: int
+    # Ingestion completeness audit (Phase 2c)
+    failed_segments: int = 0          # segments with 0 memories synthesized
+    orphaned_conversations: int = 0   # conversations with messages but no segments
+    embedding_coverage: float = 0.0   # % of memories that have embeddings
+    stalled_queue: int = 0            # embedding_queue items stuck in 'running' >1h
+    permanently_failed: int = 0       # pipeline runs given up after max retries
 
 
 class StatusResponse(BaseModel):

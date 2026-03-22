@@ -1,0 +1,913 @@
+{
+  "aggregate": {
+    "timestamp": "2026-03-21T22:15:01.413747",
+    "force_tier": null,
+    "n_test_cases": 50,
+    "metrics": {
+      "recall@5": 0.2437,
+      "recall@10": 0.2977,
+      "mrr": 0.3997
+    }
+  },
+  "per_query": [
+    {
+      "query": "What port does PostgreSQL run on?",
+      "category": "configuration",
+      "expected_facts": [
+        "port 5432",
+        "PostgreSQL 5432"
+      ],
+      "latency_ms": 2422.0,
+      "top3_results": [
+        "PostgreSQL is running with 8 processes on drive D:.",
+        "The system tested the PostgreSQL connection using both 'localhost' and '127.0.0.1'.",
+        "Decided to update docker-compose to expose PostgreSQL on port 5433"
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "What is the PostgreSQL database password?",
+      "category": "configuration",
+      "expected_facts": [
+        "Booker78",
+        "postgres password"
+      ],
+      "latency_ms": 2328.0,
+      "top3_results": [
+        "The password '?Booker78!' is used for the PostgreSQL user 'postgres'.",
+        "The password '?Booker78!' was used to connect to the PostgreSQL database.",
+        "The password '?Booker78!' was used for the Postgres user 'postgres'."
+      ],
+      "recall@5": 0.5,
+      "recall@10": 0.5,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "What port does MemoryWeb run on?",
+      "category": "configuration",
+      "expected_facts": [
+        "port 8100",
+        "8100"
+      ],
+      "latency_ms": 2329.0,
+      "top3_results": [
+        "MemoryWeb is started on port 8100 using Uvicorn and Celery worker.",
+        "Postgres service is running on the MemoryWeb Dashboard.",
+        "Redis service is running on the MemoryWeb Dashboard."
+      ],
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "What embedding model does MemoryWeb use?",
+      "category": "configuration",
+      "expected_facts": [
+        "all-MiniLM",
+        "sentence-transformers",
+        "384"
+      ],
+      "latency_ms": 2312.0,
+      "top3_results": [
+        "MemoryWeb uses embeddings at 384 dimensions via all-MiniLM-L6-v2.",
+        "Commands were executed to find embedding insert code in MemoryWeb.",
+        "Grep commands were used to find embedding insert code in MemoryWeb."
+      ],
+      "recall@5": 0.667,
+      "recall@10": 0.667,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "Where is the D drive PostgreSQL data directory?",
+      "category": "configuration",
+      "expected_facts": [
+        "D:\\PostgreSQL\\data",
+        "D:/PostgreSQL/data"
+      ],
+      "latency_ms": 2313.0,
+      "top3_results": [
+        "D: (2.9TB free) is the target for PostgreSQL data directory migration.",
+        "A script start_pg.ps1 was created to start PostgreSQL with the new D: data directory.",
+        "The data directory was deleted during migration, causing issues with PostgreSQL service."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.5,
+      "reciprocal_rank": 0.1667
+    },
+    {
+      "query": "What Python version is installed?",
+      "category": "configuration",
+      "expected_facts": [
+        "3.12",
+        "Python 3.12"
+      ],
+      "latency_ms": 2328.0,
+      "top3_results": [
+        "pytest-asyncio version 0.24 or higher was installed.",
+        "Multiple Claude installations were found, including npm-based files, Python Scripts version, and nat",
+        "Claude version is 2.1.55."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "What is the JupyterLab port?",
+      "category": "configuration",
+      "expected_facts": [
+        "8888",
+        "localhost:8888"
+      ],
+      "latency_ms": 2312.0,
+      "top3_results": [
+        "The router used in the worker.js is itty-router.",
+        "The recorder attaches to a running Edge on port 9222.",
+        "API is up on port 8002."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "What port does AgentForge run on?",
+      "category": "configuration",
+      "expected_facts": [
+        "8400",
+        "agentvault"
+      ],
+      "latency_ms": 2328.0,
+      "top3_results": [
+        "AgentForge Phase 1 is complete.",
+        "Frontend is running on port 3002.",
+        "Chat page does not exist yet for agents."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.5,
+      "reciprocal_rank": 0.1111
+    },
+    {
+      "query": "What Celery beat schedule runs requeue_stalled?",
+      "category": "configuration",
+      "expected_facts": [
+        "10 minutes",
+        "10min",
+        "every 10"
+      ],
+      "latency_ms": 2313.0,
+      "top3_results": [
+        "There are 18 tasks backed up in the Redis 'celery' queue.",
+        "There are 18 tasks backed up in the Celery queue on Redis.",
+        "Scheduled task UltraRAG-BridgeWorker runs every 2 minutes via schtasks."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "What is the embedding batch size in the worker?",
+      "category": "configuration",
+      "expected_facts": [
+        "50",
+        "BATCH_SIZE",
+        "batch size 50"
+      ],
+      "latency_ms": 2344.0,
+      "top3_results": [
+        "The embedding worker encountered 400 errors due to malformed chunks but is progressing chunk-by-chun",
+        "The embedding worker encountered 400 errors for individual malformed chunks but is progressing chunk",
+        "The router used in the worker.js is itty-router."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "What is the IP address of Spark-1?",
+      "category": "infrastructure",
+      "expected_facts": [
+        "192.168.12.132",
+        "Spark-1"
+      ],
+      "latency_ms": 2312.0,
+      "top3_results": [
+        "Spark-2 is REACHABLE at IP address 10.0.0.2",
+        "Spark 2 (192.168.12.223) is used as the relay for messages.",
+        "Spark-1 and Spark-2 are online."
+      ],
+      "recall@5": 0.5,
+      "recall@10": 1.0,
+      "reciprocal_rank": 0.3333
+    },
+    {
+      "query": "What GPU does the Windows workstation have?",
+      "category": "infrastructure",
+      "expected_facts": [
+        "RTX 5090",
+        "5090"
+      ],
+      "latency_ms": 2328.0,
+      "top3_results": [
+        "pgvector doesn't have pre-built Windows release binaries on GitHub.",
+        "RTX 5090 GPU is used in the setup.",
+        "The user decided to edit the harvester.py file on Windows."
+      ],
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "reciprocal_rank": 0.5
+    },
+    {
+      "query": "How much RAM does the Windows PC have?",
+      "category": "infrastructure",
+      "expected_facts": [
+        "128GB",
+        "128 GB"
+      ],
+      "latency_ms": 2297.0,
+      "top3_results": [
+        "techai's local PC has an RTX 5090 with 32GB VRAM and 128GB RAM running Windows 11.",
+        "pgvector doesn't have pre-built Windows release binaries on GitHub.",
+        "System has 64GB free of 128GB memory."
+      ],
+      "recall@5": 0.5,
+      "recall@10": 0.5,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "What is the VPS IP address?",
+      "category": "infrastructure",
+      "expected_facts": [
+        "76.13.118.222"
+      ],
+      "latency_ms": 2328.0,
+      "top3_results": [
+        "The VPS IP used for testing is 76.13.118.222.",
+        "The task ID for the VPS test is b80x7sjgk.",
+        "Spark-2 is REACHABLE at IP address 10.0.0.2"
+      ],
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "What is the D drive capacity?",
+      "category": "infrastructure",
+      "expected_facts": [
+        "3TB",
+        "3 TB"
+      ],
+      "latency_ms": 2328.0,
+      "top3_results": [
+        "D drive has the most space with 3TB free.",
+        "The user specified that the D drive has the most space for installation.",
+        "Ollama is stuck at the system level (GPU/driver issue)."
+      ],
+      "recall@5": 0.5,
+      "recall@10": 0.5,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "How do you SSH to Spark-2 via jump host?",
+      "category": "infrastructure",
+      "expected_facts": [
+        "ssh -J",
+        "10.0.0.2",
+        "jump"
+      ],
+      "latency_ms": 2297.0,
+      "top3_results": [
+        "Messages are sent from DGX-1 using SSH to Spark 2.",
+        "SSH to Spark 1 was successful, using NVIDIA DGX Spark Version 7.3.1.",
+        "Fixed harvester script deployed to Spark-1 server via SCP."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.333,
+      "reciprocal_rank": 0.125
+    },
+    {
+      "query": "What OS does Spark-1 run?",
+      "category": "infrastructure",
+      "expected_facts": [
+        "Ubuntu",
+        "Linux"
+      ],
+      "latency_ms": 2281.0,
+      "top3_results": [
+        "Spark-1 and Spark-2 are online.",
+        "The harvester is set to run daily at 6 AM Spark-1 time.",
+        "Spark 1 is healthy with 110GB RAM available."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "Where is the Ultra RAG production deployment?",
+      "category": "infrastructure",
+      "expected_facts": [
+        "Spark-1",
+        "8300",
+        "~/ultra-rag"
+      ],
+      "latency_ms": 2329.0,
+      "top3_results": [
+        "The deployment command used is npx wrangler deploy --env production.",
+        "Checked early startup status of the Ultra RAG server.",
+        "The deployment went to the default environment, not production."
+      ],
+      "recall@5": 0.333,
+      "recall@10": 0.333,
+      "reciprocal_rank": 0.25
+    },
+    {
+      "query": "Why was the memory synthesizer truncating to 3000 characters?",
+      "category": "decision",
+      "expected_facts": [
+        "truncat",
+        "3000",
+        "silent",
+        "94%"
+      ],
+      "latency_ms": 2312.0,
+      "top3_results": [
+        "5 memories were extracted after fixing the synthesizer.",
+        "A timeout warning occurred on memory synthesis for segment 8.",
+        "Available memory was 6GB when the alert was triggered."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "Why does MemoryWeb use pgvector for embeddings?",
+      "category": "decision",
+      "expected_facts": [
+        "pgvector",
+        "cosine",
+        "vector search"
+      ],
+      "latency_ms": 2328.0,
+      "top3_results": [
+        "MemoryWeb pgvector is fixed with `_HAS_PGVECTOR=True` and embeddings are working.",
+        "`_HAS_PGVECTOR=True` configuration ensures embeddings are working in MemoryWeb pgvector.",
+        "MemoryWeb cross-store and MemoryWeb pgvector are fixed with 200 OK status and embeddings working."
+      ],
+      "recall@5": 0.333,
+      "recall@10": 0.333,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "Why is the embedding worker a daemon thread instead of Celery task?",
+      "category": "decision",
+      "expected_facts": [
+        "daemon",
+        "thread",
+        "embedding_worker"
+      ],
+      "latency_ms": 2344.0,
+      "top3_results": [
+        "Celery worker is running with 4 thread concurrency.",
+        "Celery worker is connected and ready to process tasks on the 'celery' queue.",
+        "The Celery worker is configured with loglevel=warning, -P threads, and concurrency=4."
+      ],
+      "recall@5": 0.333,
+      "recall@10": 0.333,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "Why was the 10-fact cap on memory synthesis a problem?",
+      "category": "decision",
+      "expected_facts": [
+        "cap",
+        "10",
+        "silently dropped",
+        "facts"
+      ],
+      "latency_ms": 2312.0,
+      "top3_results": [
+        "A timeout warning occurred on memory synthesis for segment 8.",
+        "The memory synthesizer extracts atomic facts with provenance pointers from segments.",
+        "Conv 5 is segmented with 39 memories, but memory synthesis still in progress."
+      ],
+      "recall@5": 0.5,
+      "recall@10": 0.5,
+      "reciprocal_rank": 0.5
+    },
+    {
+      "query": "Why should D drive be used for large files instead of C drive?",
+      "category": "decision",
+      "expected_facts": [
+        "C: nearly full",
+        "D: has 3TB",
+        "space"
+      ],
+      "latency_ms": 2329.0,
+      "top3_results": [
+        "Daemon should POST to API instead of writing files.",
+        "D drive has the most space with 3TB free.",
+        "Parallel agents should have been used for large multi-phase builds."
+      ],
+      "recall@5": 0.333,
+      "recall@10": 0.333,
+      "reciprocal_rank": 0.5
+    },
+    {
+      "query": "How does the user prefer AI to handle obvious fixes?",
+      "category": "preference",
+      "expected_facts": [
+        "act immediately",
+        "don't ask",
+        "obvious"
+      ],
+      "latency_ms": 2312.0,
+      "top3_results": [
+        "The user decided to edit the harvester.py file on Windows.",
+        "AI Army's AIs can troubleshoot autonomously without human intervention.",
+        "The user decided to edit and push changes to harvester.py on Spark-1."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "What is the preferred domain extension for new projects?",
+      "category": "preference",
+      "expected_facts": [
+        ".app",
+        ".dev",
+        "not .ai"
+      ],
+      "latency_ms": 2328.0,
+      "top3_results": [
+        "Eight new tools were added to the project.",
+        "Pgvector extension is not installed on the MemoryWeb Dashboard.",
+        "The aihangout.ai domain routes to the default environment."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "How should Gherkin test files be organized?",
+      "category": "preference",
+      "expected_facts": [
+        "one scenario per file",
+        "ONE scenario"
+      ],
+      "latency_ms": 2360.0,
+      "top3_results": [
+        "All 35 test files compiled cleanly",
+        "Daemon should POST to API instead of writing files.",
+        "KVzap GPU test output should be saved with specific details for verification."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "What did we learn from the requeue_stalled infinite retry bug?",
+      "category": "learning",
+      "expected_facts": [
+        "infinite retry",
+        "Ollama down",
+        "attempt counter"
+      ],
+      "latency_ms": 2312.0,
+      "top3_results": [
+        "The backend requirements are installed using pip from a requirements.txt file.",
+        "Phase A bug fixes committed.",
+        "The backend requirements were installed using pip."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "What was the NVIDIA NIM miss postmortem about?",
+      "category": "learning",
+      "expected_facts": [
+        "NIM",
+        "missed",
+        "scan existing",
+        "infrastructure"
+      ],
+      "latency_ms": 2313.0,
+      "top3_results": [
+        "NVIDIA NIM is set as the primary self-hosted runtime in Phase 3.",
+        "The harvester script was configured to fall back gracefully when the NVIDIA NIM API key fails.",
+        "The NVIDIA NIM API key is invalid and returns a 403 error."
+      ],
+      "recall@5": 0.25,
+      "recall@10": 0.25,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "What causes the dict-wrapper bug in memory synthesis?",
+      "category": "learning",
+      "expected_facts": [
+        "dict",
+        "wrapper",
+        "LLM",
+        "facts",
+        "memories"
+      ],
+      "latency_ms": 2312.0,
+      "top3_results": [
+        "Conv 5 is segmented with 39 memories, but memory synthesis still in progress.",
+        "MemoryWeb stores synthesized memories that are LLM-distilled facts, not raw text.",
+        "5 memories were extracted after fixing the synthesizer."
+      ],
+      "recall@5": 0.6,
+      "recall@10": 0.8,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "What is the MemoryWeb pgvector HNSW ef_search setting?",
+      "category": "learning",
+      "expected_facts": [
+        "100",
+        "ef_search",
+        "hnsw"
+      ],
+      "latency_ms": 2344.0,
+      "top3_results": [
+        "Server is up and memoryweb: ok, pgvector: ok.",
+        "`_HAS_PGVECTOR=True` configuration ensures embeddings are working in MemoryWeb pgvector.",
+        "MemoryWeb pgvector is fixed with `_HAS_PGVECTOR=True` and embeddings are working."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "What changed in migration 004?",
+      "category": "temporal",
+      "expected_facts": [
+        "idempotency",
+        "unique constraint",
+        "004"
+      ],
+      "latency_ms": 2297.0,
+      "top3_results": [
+        "Initial schema version file was created for Alembic migrations.",
+        "PostgreSQL will be restarted after the migration.",
+        "Alembic migration files checked for vector column type changes with pgvector installation."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "When was the last Celery migration applied?",
+      "category": "temporal",
+      "expected_facts": [
+        "004",
+        "migration",
+        "celery"
+      ],
+      "latency_ms": 2297.0,
+      "top3_results": [
+        "Celery app and Ollama client files were created in the application.",
+        "Old Celery worker processes were killed before restarting with new configuration.",
+        "The issue in celery_app.py was incorrect autodiscover_tasks configuration."
+      ],
+      "recall@5": 0.333,
+      "recall@10": 0.667,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "What is the latest MemoryWeb status?",
+      "category": "temporal",
+      "expected_facts": [
+        "701 sources",
+        "1147 memories",
+        "1225 embeddings"
+      ],
+      "latency_ms": 2343.0,
+      "top3_results": [
+        "The MemoryWeb Dashboard is live at http://127.0.0.1:8100/.",
+        "MemoryWeb cross-store is fixed and sessions are ingesting with a 200 OK status.",
+        "The title of the API documentation is 'MemoryWeb 0.1.0 OAS 3.1'."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "What phases has MemoryWeb gone through?",
+      "category": "temporal",
+      "expected_facts": [
+        "phase",
+        "migration",
+        "003",
+        "004"
+      ],
+      "latency_ms": 2313.0,
+      "top3_results": [
+        "Pydantic schemas were written for the MemoryWeb API.",
+        "MemoryWeb is designed to store and retrieve conversation history and synthesized memories.",
+        "MemoryWeb has a max access_count of 61 on a single memory."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "What is Spark-1?",
+      "category": "entity",
+      "expected_facts": [
+        "GB10",
+        "119.7GB",
+        "192.168.12.132",
+        "cluster"
+      ],
+      "latency_ms": 2297.0,
+      "top3_results": [
+        "Spark-1 and Spark-2 are online.",
+        "Spark 1 is healthy with 110GB RAM available.",
+        "Cross-agent sync is active between Spark-1 and Spark-2."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "What is MemoryPulse?",
+      "category": "entity",
+      "expected_facts": [
+        "TUI",
+        "Textual",
+        "D:\\memory-pulse",
+        "memory-pulse"
+      ],
+      "latency_ms": 2328.0,
+      "top3_results": [
+        "The memory-web directory path is set to D:\\memory-web.",
+        "MemoryWeb categorizes memories into types like technical_choice, problem, decision, configuration, a",
+        "Memory is fine with 64GB free out of 128GB."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "What is Ultra RAG?",
+      "category": "entity",
+      "expected_facts": [
+        "RAG",
+        "ultrarag.app",
+        "8300",
+        "Spark-1"
+      ],
+      "latency_ms": 2328.0,
+      "top3_results": [
+        "Ultra RAG is designed for document intelligence and corpus retrieval.",
+        "Ultra RAG Server is started on port 8300 with logging to `server.log`.",
+        "Ultra RAG has 27,374 chunks across 2 collections."
+      ],
+      "recall@5": 0.5,
+      "recall@10": 0.5,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "What is AgentForge?",
+      "category": "entity",
+      "expected_facts": [
+        "agentvault",
+        "D:\\agentvault",
+        "8400",
+        "identity"
+      ],
+      "latency_ms": 2312.0,
+      "top3_results": [
+        "AgentForge repository is created on GitHub under rblake2320/agentforge.",
+        "AgentForge Phase 1 is complete.",
+        "Agent C is working on frontend pages."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "What is AI Army OS?",
+      "category": "entity",
+      "expected_facts": [
+        "8500",
+        "autonomous",
+        "Spark-1",
+        "agent"
+      ],
+      "latency_ms": 2297.0,
+      "top3_results": [
+        "AI Army OS v1.0 is live on Spark-1 at http://192.168.12.132:8500.",
+        "The AI Army OS server is hosted at http://192.168.12.132:8500 and accessible via army.ultrarag.app.",
+        "AI Army OS has three agents online and one task pending human intervention."
+      ],
+      "recall@5": 0.75,
+      "recall@10": 0.75,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "What is the IMDS AutoQA project?",
+      "category": "entity",
+      "expected_facts": [
+        "D:\\imds-autoqa",
+        "Air Force",
+        "IMDS",
+        "Maven"
+      ],
+      "latency_ms": 2328.0,
+      "top3_results": [
+        "Project is located on D:\\imds-autoqa.",
+        "The IMDS AutoQA project is ~85% code-complete with 87 main source files and 32 test files.",
+        "All 7 phases of the project are now complete and pushed to github.com/rblake2320/imds-autoqa."
+      ],
+      "recall@5": 0.75,
+      "recall@10": 0.75,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "Who is rblake2320?",
+      "category": "entity",
+      "expected_facts": [
+        "Spark",
+        "ssh",
+        "rblake2320"
+      ],
+      "latency_ms": 2344.0,
+      "top3_results": [
+        "Project will be added to GitHub under rblake2320/agentforge.",
+        "AgentForge repository is created on GitHub under rblake2320/agentforge.",
+        "LICENSE specifies the MIT License for SoulHub with copyright to rblake2320."
+      ],
+      "recall@5": 0.333,
+      "recall@10": 0.333,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "What GPU does the machine running MemoryWeb have?",
+      "category": "multi-hop",
+      "expected_facts": [
+        "RTX 5090",
+        "5090"
+      ],
+      "latency_ms": 2313.0,
+      "top3_results": [
+        "The MemoryWeb Dashboard is live at http://127.0.0.1:8100/.",
+        "The server is running and all subsystems, including memoryweb, report as 'ok'.",
+        "The server is running and all subsystems, including memoryweb, report as ok."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "What database does Ultra RAG use on Spark-1?",
+      "category": "multi-hop",
+      "expected_facts": [
+        "PostgreSQL",
+        "pgvector",
+        "rag schema"
+      ],
+      "latency_ms": 2328.0,
+      "top3_results": [
+        "Memory was updated with the correct Ultra RAG location on Spark-1.",
+        "The memory was updated with correct architecture details about Ultra RAG living on Spark-1 with a pe",
+        "Spark-1 and Spark-2 are online."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "How do you restart the Cloudflare tunnel for Ultra RAG?",
+      "category": "multi-hop",
+      "expected_facts": [
+        "systemctl",
+        "cloudflared",
+        "restart"
+      ],
+      "latency_ms": 2328.0,
+      "top3_results": [
+        "Cloudflare tunnel is active for port 3002.",
+        "`start-ultra-rag-tunnel.bat` was rewritten to kill any stray local cloudflared, show the permanent U",
+        "Cloudflare tunnel is created for port 3002."
+      ],
+      "recall@5": 0.333,
+      "recall@10": 0.333,
+      "reciprocal_rank": 0.5
+    },
+    {
+      "query": "What models does Ollama serve on Spark-1?",
+      "category": "multi-hop",
+      "expected_facts": [
+        "43 models",
+        "ollama.ultrarag.app",
+        "11434"
+      ],
+      "latency_ms": 2312.0,
+      "top3_results": [
+        "The Ollama model selection needs to use what's actually installed.",
+        "The Ollama model selection was fixed to use what's actually installed.",
+        "Ollama is started with the command `ollama serve`."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "What happens when you run start_persistent.ps1?",
+      "category": "multi-hop",
+      "expected_facts": [
+        "MemoryWeb",
+        "8100",
+        "uvicorn",
+        "kills orphans"
+      ],
+      "latency_ms": 2360.0,
+      "top3_results": [
+        "A PS1 file is written to check the server state and restart cleanly.",
+        "Running with verbose TestNG output to see exactly what's happening",
+        "Started keep-alive script with nohup to ensure it persists."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "How do you fix a stale MemoryWeb server on Windows?",
+      "category": "solution",
+      "expected_facts": [
+        "kill",
+        "python",
+        "50MB",
+        "restart"
+      ],
+      "latency_ms": 2312.0,
+      "top3_results": [
+        "MemoryWeb cross-store is fixed and sessions are ingesting with a 200 OK status.",
+        "Start/connect MemoryWeb Celery worker on local Windows machine",
+        "The server is running and all subsystems, including memoryweb, report as 'ok'."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "How do you run the IMDS Maven build?",
+      "category": "solution",
+      "expected_facts": [
+        "run_mvn.sh",
+        "JAVA_HOME",
+        "maven"
+      ],
+      "latency_ms": 2344.0,
+      "top3_results": [
+        "The initial Maven build failed.",
+        "The project was compiled using Maven from the D:/imds-autoqa directory.",
+        "The user requested a detailed build plan for IMDS AutoQA Wrapper."
+      ],
+      "recall@5": 0.333,
+      "recall@10": 0.667,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "What is the fix for the DetachedInstanceError in tagger.py?",
+      "category": "solution",
+      "expected_facts": [
+        "DetachedInstanceError",
+        "seg IDs",
+        "inside session"
+      ],
+      "latency_ms": 2328.0,
+      "top3_results": [
+        "The user checks for syntax errors in status.py by importing it.",
+        "Decided to do the fix entirely in Python.",
+        "Agent A is responsible for the landing page and agent detail page."
+      ],
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "reciprocal_rank": 0.0
+    },
+    {
+      "query": "How do you start the MemoryWeb Celery worker?",
+      "category": "solution",
+      "expected_facts": [
+        "celery",
+        "-A app.celery_app",
+        "worker",
+        "-P threads"
+      ],
+      "latency_ms": 2297.0,
+      "top3_results": [
+        "Start/connect MemoryWeb Celery worker on local Windows machine",
+        "Celery service with 3 workers is running on the MemoryWeb Dashboard.",
+        "MemoryWeb is started on port 8100 using Uvicorn and Celery worker."
+      ],
+      "recall@5": 0.5,
+      "recall@10": 0.5,
+      "reciprocal_rank": 1.0
+    }
+  ]
+}

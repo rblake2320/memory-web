@@ -20,15 +20,28 @@ def _check_pgvector_in_db() -> bool:
     Check whether the PostgreSQL 'vector' extension is actually installed.
     Returns False if not reachable or extension absent.
     Run at import time only when needed.
+
+    Reads MW_DATABASE_URL from the .env file first (pydantic-settings does NOT
+    populate os.environ, so os.environ.get would always miss it and fall back to
+    the wrong hardcoded URL).
     """
     try:
         import psycopg2
-        db_url = _os.environ.get(
-            "MW_DATABASE_URL",
-            "postgresql://memoryweb:memoryweb@localhost:5432/memoryweb",
-        )
-        # urllib.parse.unquote for %3F → ?
         from urllib.parse import unquote
+        # Try .env file first (pydantic-settings doesn't populate os.environ)
+        db_url = None
+        try:
+            from dotenv import dotenv_values
+            _env_path = _os.path.join(_os.path.dirname(__file__), '..', '.env')
+            _env = dotenv_values(_env_path)
+            db_url = _env.get('MW_DATABASE_URL')
+        except Exception:
+            pass
+        # Fall back to os.environ if dotenv didn't find it
+        if not db_url:
+            db_url = _os.environ.get('MW_DATABASE_URL', '')
+        if not db_url:
+            return False
         db_url_decoded = unquote(db_url)
         conn = psycopg2.connect(db_url_decoded)
         cur = conn.cursor()
@@ -265,6 +278,10 @@ class Memory(Base):
     utility_score = Column(Float, default=0.5, nullable=False, server_default="0.5")
     created_at = Column(DateTime, default=ts)
     tombstoned_at = Column(DateTime, nullable=True)
+    # Temporal validity (migration 006) — bi-temporal contradiction handling
+    valid_from = Column(DateTime(timezone=True), nullable=True)
+    valid_until = Column(DateTime(timezone=True), nullable=True)   # set when superseded
+    superseded_by = Column(BigInteger, ForeignKey(f"memoryweb.memories.id", ondelete="SET NULL"), nullable=True)
 
     provenance = relationship("MemoryProvenance", back_populates="memory")
     links_a = relationship("MemoryLink", foreign_keys="MemoryLink.memory_id_a", back_populates="memory_a")
@@ -367,13 +384,15 @@ class PipelineRun(Base):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     source_id = Column(BigInteger, ForeignKey(f"{SCHEMA}.sources.id", ondelete="CASCADE"), nullable=True)
     stage = Column(String(50), nullable=False)       # ingest|segment|tag|extract|synthesize|embed
-    status = Column(String(20), nullable=False, default="pending")  # pending|running|done|failed
+    status = Column(String(20), nullable=False, default="pending")  # pending|running|done|failed|permanently_failed
     celery_task_id = Column(String(255), nullable=True)
     records_processed = Column(Integer, default=0)
     error_message = Column(Text, nullable=True)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=ts)
+    # Phase 1c: attempt counter prevents infinite retry storms
+    attempts = Column(Integer, default=0, nullable=False, server_default="0")
 
     source = relationship("Source", back_populates="pipeline_runs")
 
