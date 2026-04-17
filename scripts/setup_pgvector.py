@@ -51,6 +51,57 @@ def install_extension():
         return False
 
 
+
+# Import statements needed (only new ones not in existing code)
+from fastapi import Query
+from sqlalchemy import select
+from ..models import Embedding, Memory
+from ..schemas import SimilarMemoryOut
+
+# New endpoint
+@router.get("/memories/{memory_id}/similar", response_model=List[SimilarMemoryOut])
+def get_similar_memories(
+    memory_id: int,
+    limit: int = Query(default=5, le=20),
+    db: Session = Depends(get_db),
+):
+    """Get semantically similar memories using pgvector cosine similarity."""
+    mem = db.query(Memory).get(memory_id)
+    if not mem:
+        raise HTTPException(status_code=404, detail="Memory not found")
+
+    # Query the embeddings table for nearest neighbors
+    stmt = select(Embedding).where(Embedding.memory_id != memory_id)
+    embeddings = db.execute(stmt).scalars().all()
+
+    # Calculate cosine similarity using pgvector
+    similar_memories = []
+    for embedding in embeddings:
+        similarity_score = db.execute(
+            select(Embedding.vector.similarity(mem.embedding.vector))
+        ).scalar()
+        if similarity_score is not None:
+            similar_memories.append((embedding.memory_id, similarity_score))
+
+    # Sort by similarity score and limit
+    similar_memories.sort(key=lambda x: x[1], reverse=True)
+    similar_memories = similar_memories[:limit]
+
+    # Fetch and return similar memories
+    result = []
+    for mem_id, similarity_score in similar_memories:
+        mem = db.query(Memory).get(mem_id)
+        if mem:
+            result.append(
+                SimilarMemoryOut(
+                    id=mem.id,
+                    content=mem.content,
+                    similarity_score=similarity_score,
+                )
+            )
+
+    return result
+
 if __name__ == "__main__":
     print("Checking pgvector...")
     if check_extension():
