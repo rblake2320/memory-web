@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -18,6 +18,10 @@ class SourceOut(BaseModel):
     file_size_bytes: Optional[int]
     message_count: Optional[int]
     ingested_at: Optional[datetime]
+    # Migration 009: trust tier + invalidation
+    trust_tier: int = 4
+    invalidated_at: Optional[datetime] = None
+    invalidation_reason: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -119,7 +123,29 @@ class MemoryOut(BaseModel):
     valid_from: Optional[datetime] = None
     valid_until: Optional[datetime] = None
     superseded_by: Optional[int] = None
-    is_current: bool = True  # True when valid_until IS NULL
+    is_current: bool = True  # True when valid_until IS NULL — populated by ORM @property
+    # Migration 007: trust + provenance
+    source_id: Optional[int] = None
+    derivation_tier: int = 4
+    ingested_at: Optional[datetime] = None
+    corroboration_count: int = 1
+    # Migration 008: dedup group
+    canonical_group_id: Optional[int] = None
+    # Migration 011: keyword expansion
+    search_keywords: List[str] = Field(default_factory=list)
+    # Migration 012: integrity upgrade
+    corrected_at: Optional[datetime] = None
+    required_roots: int = 1
+    source_class: str = "unknown"
+    belief_state: str = "active"
+
+    @field_validator("search_keywords", mode="before")
+    @classmethod
+    def coerce_none_keywords(cls, v):
+        # C-4 fix: the DB column has no NOT NULL constraint, so any row inserted
+        # without specifying search_keywords has NULL. Coerce to empty list so
+        # model_validate never raises ValidationError on legacy/raw-SQL rows.
+        return v if v is not None else []
 
 
 class MemoryWithProvenance(MemoryOut):
@@ -235,3 +261,67 @@ class StatusResponse(BaseModel):
     stats: StatsOut
     pipeline_health: Optional[PipelineHealthOut] = None
     version: str = "0.1.0"
+
+
+# ---------------------------------------------------------------------------
+# Event log schemas (Migration 010)
+# ---------------------------------------------------------------------------
+class EventLogOut(BaseModel):
+    id: int
+    event_type: str
+    target_type: str
+    target_id: int
+    payload: Dict[str, Any]
+    hash: str
+    prev_hash: Optional[str]
+    created_at: Optional[str]  # ISO string from service layer
+
+
+class MemoryHistoryOut(BaseModel):
+    memory_id: int
+    events: List[EventLogOut]
+    total: int
+
+
+class EventLogVerifyOut(BaseModel):
+    valid: bool
+    chain_length: int
+    first_broken_at: Optional[int]
+    error: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Source invalidation schemas (Migration 009)
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Answer certificate schemas (Migration 012)
+# ---------------------------------------------------------------------------
+class AnswerCertificateOut(BaseModel):
+    id: int
+    query_text: str
+    answer_text: Optional[str] = None
+    confidence: Optional[float] = None
+    stale_reason: Optional[str] = None
+    stale_at: Optional[datetime] = None
+    cleared_at: Optional[datetime] = None
+    created_at: datetime
+    memory_ids: List[int] = Field(default_factory=list)
+    source_ids: List[int] = Field(default_factory=list)
+
+
+class CertificateListResponse(BaseModel):
+    total: int
+    items: List[AnswerCertificateOut]
+
+
+# ---------------------------------------------------------------------------
+# Source invalidation schemas (Migration 009)
+# ---------------------------------------------------------------------------
+class SourceInvalidateRequest(BaseModel):
+    reason: str = ""
+
+
+class SourceInvalidateResult(BaseModel):
+    source_id: int
+    action: str  # "invalidated" | "restored"
+    affected_memories: int

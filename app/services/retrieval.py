@@ -25,8 +25,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from ..config import settings
-from ..database import db_session, engine
-from ..models import Memory, MemoryProvenance, Message, Segment, Source, Tag, TagAxis
+from ..database import db_session, engine, tenant_connection
+from ..models import Memory, MemoryProvenance, Message, Segment, Source, Tag, TagAxis, EventLog
 from ..schemas import ProvenanceChain, SearchResult, SearchResponse
 
 logger = logging.getLogger(__name__)
@@ -132,7 +132,7 @@ def _entity_boost(
         params = {f"e{i}": name.lower() for i, name in enumerate(entity_names)}
         params["schema"] = SCHEMA
 
-        with engine.connect() as conn:
+        with tenant_connection() as conn:
             rows = conn.execute(
                 text(f"""
                     SELECT DISTINCT mp.memory_id
@@ -241,7 +241,7 @@ def tier1_structured(
                 date_sql_parts.append("msg.sent_at <= :date_to")
                 date_params["date_to"] = date_to
 
-            with engine.connect() as conn:
+            with tenant_connection() as conn:
                 rows = conn.execute(
                     text(f"""
                         SELECT DISTINCT mp.memory_id
@@ -316,7 +316,7 @@ def tier2_trigram(
         LIMIT :k
     """)
 
-    with engine.connect() as conn:
+    with tenant_connection() as conn:
         rows = conn.execute(sql, {"query": query, "k": k}).fetchall()
 
     results = []
@@ -368,7 +368,7 @@ def tier2_fts(
     """)
 
     try:
-        with engine.connect() as conn:
+        with tenant_connection() as conn:
             rows = conn.execute(sql, {"query": query, "k": k}).fetchall()
     except Exception as e:
         # FTS columns not yet created (migration 005 not applied)
@@ -451,7 +451,7 @@ def tier3_semantic(
     mem_rows = []
     seg_rows = []
 
-    with engine.connect() as conn:
+    with tenant_connection() as conn:
         mem_rows = conn.execute(sql_memory, params).fetchall()
         try:
             seg_rows = conn.execute(sql_segment, params).fetchall()
@@ -496,6 +496,113 @@ def tier3_semantic(
 
 
 # ---------------------------------------------------------------------------
+# Migration 011: Tier 2c — keyword expansion search
+# ---------------------------------------------------------------------------
+
+def tier2_keywords(
+    query: str,
+    include_tombstoned: bool = False,
+    include_superseded: bool = False,
+    k: int = 10,
+) -> List[SearchResult]:
+    """
+    GIN array overlap search on memories.search_keywords.
+    Parses the query into individual lowercase terms and finds memories whose
+    keyword arrays contain any of those terms.
+
+    Catches queries that don't match the literal fact text but do match a synonym
+    stored at write-time (e.g. "pg port" → PostgreSQL memories with keyword "pg").
+    """
+    terms = [w.lower().strip() for w in re.split(r'\W+', query) if len(w.strip()) >= 2]
+    if not terms:
+        return []
+
+    tomb_filter = "" if include_tombstoned else "AND m.tombstoned_at IS NULL"
+    temporal_filter = "" if include_superseded else "AND m.valid_until IS NULL"
+
+    # Build an ANY() match: memory whose search_keywords overlap with query terms
+    try:
+        with tenant_connection() as conn:
+            rows = conn.execute(
+                text(f"""
+                    SELECT m.id, m.fact, m.category, m.tombstoned_at
+                    FROM {SCHEMA}.memories m
+                    WHERE m.search_keywords && CAST(:terms AS TEXT[])
+                    {tomb_filter}
+                    {temporal_filter}
+                    ORDER BY array_length(m.search_keywords, 1) DESC
+                    LIMIT :k
+                """),
+                {"terms": terms, "k": k},
+            ).fetchall()
+    except Exception as e:
+        logger.debug("Keyword tier skipped (migration 011 not applied?): %s", e)
+        return []
+
+    results = []
+    with db_session() as db2:
+        for row in rows:
+            mem_id, fact, category, tomb = row
+            provenance = _build_provenance(mem_id, db2)
+            results.append(SearchResult(
+                result_type="memory",
+                id=mem_id,
+                content=fact,
+                score=0.5,  # placeholder; RRF fusion will reweight
+                tier=2,
+                provenance=provenance,
+                tombstoned=tomb is not None,
+            ))
+
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Migration 009: trust-tier weighting + corroboration boost
+# ---------------------------------------------------------------------------
+
+# Trust multipliers by source trust_tier (T1=user_explicit → T5=external)
+_TRUST_WEIGHT = {1: 1.0, 2: 0.85, 3: 0.75, 4: 0.65, 5: 0.55}
+
+
+def _apply_trust_and_corroboration(
+    results: List[SearchResult],
+    db: Session,
+) -> List[SearchResult]:
+    """
+    Migration 009: adjust RRF scores by:
+    1. Source trust tier: T1 facts rank higher than T4 facts.
+    2. Corroboration count: facts agreed on by multiple independent sources rank higher.
+       +10% per additional corroborating source, capped at +50%.
+    """
+    try:
+        for r in results:
+            mem = db.query(Memory).get(r.id)
+            if not mem:
+                continue
+
+            # Trust weighting via source.trust_tier
+            trust_w = 1.0
+            if mem.source_id:
+                src = db.query(Source).get(mem.source_id)
+                if src:
+                    trust_w = _TRUST_WEIGHT.get(src.trust_tier or 4, 0.65)
+            elif mem.derivation_tier is not None:
+                # Fallback: use memory's own derivation_tier as a proxy
+                trust_w = _TRUST_WEIGHT.get(mem.derivation_tier, 0.65)
+
+            # Corroboration boost: +10% per extra source, capped at +50%
+            extra = min((mem.corroboration_count or 1) - 1, 5)
+            corroboration_mult = 1.0 + 0.1 * extra
+
+            r.score = round(r.score * trust_w * corroboration_mult, 4)
+    except Exception as e:
+        logger.debug("Trust/corroboration weighting failed: %s", e)
+
+    return results
+
+
+# ---------------------------------------------------------------------------
 # Phase 4c: MemoryLinks graph expansion
 # ---------------------------------------------------------------------------
 
@@ -522,7 +629,7 @@ def _expand_by_links(
         # Temporal filter for linked memories
         temporal_filter = "" if include_superseded else "AND m.valid_until IS NULL"
 
-        with engine.connect() as conn:
+        with tenant_connection() as conn:
             rows = conn.execute(
                 text(f"""
                     SELECT DISTINCT
@@ -580,6 +687,85 @@ def _expand_by_links(
         logger.debug("MemoryLinks expansion failed (table may be empty): %s", e)
 
     return results + additions
+
+
+# ---------------------------------------------------------------------------
+# Migration 012: Intent-based boost (predicate/keyword matching)
+# ---------------------------------------------------------------------------
+
+# Map query intent signals → memory predicates/keywords to match against.
+# Keys are frozensets of signal words; values are predicate patterns to match
+# against memory.category or memory.search_keywords.
+# Tied to predicates/entity-types, NOT to fragile category name strings.
+_INTENT_SIGNALS: List[tuple] = [
+    (frozenset(["where", "live", "city", "move", "address", "location"]),
+     frozenset(["location", "lives_in", "moved_to", "address", "city"])),
+    (frozenset(["work", "job", "company", "employer", "role", "position"]),
+     frozenset(["employer", "works_at", "role", "job", "company", "work"])),
+    (frozenset(["favorite", "prefer", "like", "best", "prefer"]),
+     frozenset(["preference", "favorite", "prefer", "like"])),
+    (frozenset(["decide", "chose", "pick", "why", "reason", "rationale"]),
+     frozenset(["decision", "rationale", "reason", "chose", "why"])),
+    (frozenset(["fix", "bug", "error", "broke", "broken", "issue", "problem"]),
+     frozenset(["problem", "solution", "debug", "fix", "bug", "error"])),
+    (frozenset(["config", "setting", "configure", "setup", "install"]),
+     frozenset(["configuration", "config", "setup", "install", "infrastructure"])),
+    (frozenset(["port", "host", "ip", "address", "endpoint", "url"]),
+     frozenset(["infrastructure", "configuration", "port", "host", "ip"])),
+]
+
+_INTENT_BOOST_SCORE = 0.10
+
+
+def _intent_boost(
+    results: List[SearchResult],
+    query: str,
+    db: Session,
+) -> List[SearchResult]:
+    """
+    Migration 012: boost memories whose predicates/keywords match detected
+    query intent signals.
+
+    Tied to memory predicates (category field + search_keywords), NOT to fragile
+    category name strings. Applied AFTER entity boost so intent boost compounds
+    on top of entity boost for highly relevant memories.
+
+    source_class is intentionally NOT used here — it was applied at write time
+    to base_trust, and re-applying it at retrieval would double-count.
+    """
+    if not results:
+        return results
+
+    query_lower = query.lower()
+    query_words = set(re.split(r"\W+", query_lower))
+
+    # Determine which predicates to boost for this query
+    boost_predicates: set = set()
+    for signal_words, predicates in _INTENT_SIGNALS:
+        if query_words & signal_words or any(sw in query_lower for sw in signal_words):
+            boost_predicates.update(predicates)
+
+    if not boost_predicates:
+        return results
+
+    try:
+        for r in results:
+            mem = db.query(Memory).get(r.id)
+            if not mem:
+                continue
+            # Check category match
+            if mem.category and mem.category.lower() in boost_predicates:
+                r.score = round(r.score + _INTENT_BOOST_SCORE, 4)
+                continue
+            # Check search_keywords overlap
+            if mem.search_keywords:
+                kw_set = {kw.lower() for kw in mem.search_keywords}
+                if kw_set & boost_predicates:
+                    r.score = round(r.score + _INTENT_BOOST_SCORE, 4)
+    except Exception as e:
+        logger.debug("_intent_boost failed (non-fatal): %s", e)
+
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -693,9 +879,15 @@ def search(
         except Exception as e:
             logger.warning("Tier 3 semantic search failed: %s", e)
 
-    # RRF fusion: merge Tier 2 (trigram), Tier 2b (FTS), Tier 3 (semantic)
-    # All three fed into RRF so the best evidence wins regardless of tier.
-    if t2_results or t2_fts_results or t3_results:
+    # Tier 2c: Keyword expansion (Migration 011)
+    t2_kw_results: List[SearchResult] = []
+    if min_tier <= 2:
+        t2_kw_results = tier2_keywords(query, include_tombstoned, include_superseded, k)
+        if t2_kw_results and 2 not in tiers_used:
+            tiers_used.append(2)
+
+    # RRF fusion: merge Tier 2 (trigram), Tier 2b (FTS), Tier 2c (keywords), Tier 3 (semantic)
+    if t2_results or t2_fts_results or t2_kw_results or t3_results:
         RRF_K = 60
         rrf_scores: Dict[int, float] = {}
         best_result: Dict[int, SearchResult] = {}
@@ -705,6 +897,11 @@ def search(
             best_result[r.id] = r
 
         for rank, r in enumerate(t2_fts_results):
+            rrf_scores[r.id] = rrf_scores.get(r.id, 0.0) + 1.0 / (RRF_K + rank + 1)
+            if r.id not in best_result or r.score > best_result[r.id].score:
+                best_result[r.id] = r
+
+        for rank, r in enumerate(t2_kw_results):
             rrf_scores[r.id] = rrf_scores.get(r.id, 0.0) + 1.0 / (RRF_K + rank + 1)
             if r.id not in best_result or r.score > best_result[r.id].score:
                 best_result[r.id] = r
@@ -727,6 +924,12 @@ def search(
     # structured hits can still outrank fused results when score=1.0
     all_results.sort(key=lambda r: r.score, reverse=True)
 
+    # Migration 009: trust-tier + corroboration boost (before entity boost so entity boost compounds on top)
+    if all_results:
+        with db_session() as db:
+            all_results = _apply_trust_and_corroboration(all_results, db)
+        all_results.sort(key=lambda r: r.score, reverse=True)
+
     # Phase 4a: Entity-boosted retrieval
     if all_results:
         with db_session() as db:
@@ -736,6 +939,12 @@ def search(
     # Phase 4c: MemoryLinks graph expansion (best-effort)
     all_results = _expand_by_links(all_results, include_superseded)
     all_results.sort(key=lambda r: r.score, reverse=True)
+
+    # Migration 012: intent-based boost (predicate/keyword matching, not category strings)
+    if all_results:
+        with db_session() as db:
+            all_results = _intent_boost(all_results, query, db)
+        all_results.sort(key=lambda r: r.score, reverse=True)
 
     # Update access + retrieval counts
     if all_results:
@@ -754,6 +963,27 @@ def search(
                         mem.utility_score = round(0.3 * (hc + 1) / (rc + 2) + 0.7 * imp_score, 4)
                     else:
                         mem.utility_score = round(0.7 * (hc + 1) / (rc + 2) + 0.3 * imp_score, 4)
+
+    # Migration 012: record answer certificate (non-fatal — never blocks search)
+    try:
+        from .memory_integrity import record_answer_certificate
+        result_memory_ids = [r.id for r in all_results[:k]]
+        all_source_ids: set = set()
+        for r in all_results[:k]:
+            for prov in r.provenance:
+                if prov.source_id:
+                    all_source_ids.add(prov.source_id)
+        if result_memory_ids:
+            with db_session() as cert_db:
+                record_answer_certificate(
+                    query_text=query,
+                    answer_text=None,
+                    memory_ids=result_memory_ids,
+                    source_ids=list(all_source_ids),
+                    db=cert_db,
+                )
+    except Exception as _cert_err:
+        logger.debug("Answer certificate recording failed (non-fatal): %s", _cert_err)
 
     elapsed_ms = (time.monotonic() - start) * 1000
 

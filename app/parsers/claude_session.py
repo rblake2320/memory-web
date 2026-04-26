@@ -49,10 +49,12 @@ class ParsedConversation:
 
 
 def _extract_content(message: dict) -> str:
-    """Extract text content from a message object (handles list or str)."""
+    """Extract text content from a message object (handles list or str).
+    NUL bytes (\x00) are stripped because PostgreSQL rejects them in text columns.
+    """
     content = message.get("content", "")
     if isinstance(content, str):
-        return content
+        return content.replace('\x00', '')
     if isinstance(content, list):
         parts = []
         for block in content:
@@ -69,8 +71,8 @@ def _extract_content(message: dict) -> str:
                     parts.append(f"[Tool: {name}] {json.dumps(inp)[:200]}")
             elif isinstance(block, str):
                 parts.append(block)
-        return "\n".join(parts)
-    return str(content)
+        return "\n".join(parts).replace('\x00', '')
+    return str(content).replace('\x00', '')
 
 
 def parse_session_file(path: str) -> ParsedConversation:

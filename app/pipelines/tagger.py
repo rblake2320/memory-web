@@ -65,7 +65,7 @@ def tag_segment(segment_id: int) -> int:
         # Skip if already tagged
         existing_count = db.query(Tag).filter(Tag.segment_id == segment_id).count()
         if existing_count > 0:
-            return existing_count
+            return 0
 
         # Get message content
         messages = (

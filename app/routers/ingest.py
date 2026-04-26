@@ -52,7 +52,6 @@ def ingest_session(body: IngestSessionRequest):
     """Ingest one Claude session JSONL file asynchronously."""
     try:
         task = ingest_session_task.delay(body.path, body.force)
-        run_full_pipeline.apply_async(countdown=2, kwargs={"source_id": -1})
         return TaskResponse(task_id=task.id, status="queued", message=f"Ingesting {body.path}")
     except Exception:
         return _celery_unavailable("ingest_session")
@@ -220,7 +219,6 @@ async def upload_file(file: UploadFile = File(...)):
     try:
         if suffix == ".jsonl":
             task = ingest_session_task.delay(dest_str, False)
-            run_full_pipeline.apply_async(countdown=2, kwargs={"source_id": -1})
             return TaskResponse(task_id=task.id, status="queued",
                                 message=f"Ingesting Claude session: {file.filename}")
 

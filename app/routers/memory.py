@@ -1,24 +1,46 @@
 """Memory, conversation, and segment API routes."""
 
+import logging
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from ..database import db_session
+logger = logging.getLogger(__name__)
+
+from ..database import db_session, engine
 from ..deps import get_db
-from ..models import Conversation, Embedding, EmbeddingQueue, Memory, MemoryLink, MemoryProvenance, Message, RetentionLog, Segment, Source, Tag
+from ..models import (
+    AnswerCertificate, Conversation, Embedding, EmbeddingQueue,
+    Memory, MemoryLink, MemoryProvenance, Message, RetentionLog, Segment, Source, Tag,
+)
 from ..schemas import (
+    AnswerCertificateOut,
+    CertificateListResponse,
     ConversationOut,
+    EventLogOut,
+    EventLogVerifyOut,
+    MemoryHistoryOut,
     MemoryListResponse,
     MemoryOut,
     MemoryWithProvenance,
     MessageOut,
     ProvenanceChain,
     SegmentOut,
+    SourceInvalidateRequest,
+    SourceInvalidateResult,
+    SourceOut,
 )
 from ..services.retrieval import _build_provenance
+from ..services.event_log import append_event, verify_chain, get_memory_history
+from ..services.memory_integrity import (
+    _recompute_memory,
+    mark_certificates_stale,
+    clear_stale_certificates,
+    get_certificate,
+    list_certificates,
+)
 
 router = APIRouter(prefix="/api", tags=["memory"])
 
@@ -105,7 +127,11 @@ def mark_memory_helpful(memory_id: int, db: Session = Depends(get_db)):
     rc = max(mem.retrieval_count or 1, mem.helpful_count)
     hc = mem.helpful_count
     imp_score = ((mem.importance or 3) - 1) / 4.0
-    mem.utility_score = round(0.7 * (hc + 1) / (rc + 2) + 0.3 * imp_score, 4)
+    # Cold-start: importance dominates until retrieval data accumulates
+    if rc <= 5:
+        mem.utility_score = round(0.3 * (hc + 1) / (rc + 2) + 0.7 * imp_score, 4)
+    else:
+        mem.utility_score = round(0.7 * (hc + 1) / (rc + 2) + 0.3 * imp_score, 4)
     db.commit()
     db.refresh(mem)
     return MemoryOut.model_validate(mem)
@@ -261,3 +287,206 @@ def get_segment_messages(
 
     messages = q.order_by(Message.ordinal).all()
     return [MessageOut.model_validate(m) for m in messages]
+
+
+# ---------------------------------------------------------------------------
+# Memory lifecycle history (Migration 010 event log)
+# ---------------------------------------------------------------------------
+
+@router.get("/memories/{memory_id}/history", response_model=MemoryHistoryOut)
+def get_memory_history_endpoint(memory_id: int, db: Session = Depends(get_db)):
+    """
+    Return the full event history for a memory from the append-only event log.
+    Shows: memory_created → corroborated → superseded → confidence_changed lifecycle.
+    Answers: "what did the system believe about this memory on date X?"
+    """
+    mem = db.query(Memory).get(memory_id)
+    if not mem:
+        raise HTTPException(status_code=404, detail="Memory not found")
+
+    events_raw = get_memory_history(memory_id)
+    events = [EventLogOut(**e) for e in events_raw]
+    return MemoryHistoryOut(memory_id=memory_id, events=events, total=len(events))
+
+
+@router.get("/event_log/verify", response_model=EventLogVerifyOut)
+def verify_event_log():
+    """
+    Walk the entire event log hash chain and verify integrity.
+    Returns {valid, chain_length, first_broken_at}.
+    Use this to detect tampering or corruption of the immutable event ledger.
+    """
+    result = verify_chain()
+    return EventLogVerifyOut(**result)
+
+
+# ---------------------------------------------------------------------------
+# Source trust + cascade invalidation (Migration 009)
+# ---------------------------------------------------------------------------
+
+@router.post("/sources/{source_id}/invalidate", response_model=SourceInvalidateResult)
+def invalidate_source(
+    source_id: int,
+    body: SourceInvalidateRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Mark a source as retroactively wrong. Cascades to all derived memories:
+    - Reduces confidence by 50% (stores original in pre_invalidation_confidence)
+    - Demotes derivation_tier to max(current, 5)
+    - Does NOT delete or set valid_until — memories remain visible but downranked.
+    Reversible via POST /api/sources/{id}/restore.
+    """
+    src = db.query(Source).get(source_id)
+    if not src:
+        raise HTTPException(status_code=404, detail="Source not found")
+    if src.invalidated_at is not None:
+        raise HTTPException(status_code=409, detail="Source already invalidated")
+
+    now = datetime.utcnow()
+    src.invalidated_at = now
+    src.invalidation_reason = body.reason or "Manual invalidation"
+
+    # Cascade: demote all derived memories via deterministic recompute
+    affected = db.query(Memory).filter(
+        Memory.source_id == source_id,
+        Memory.tombstoned_at.is_(None),
+    ).all()
+    affected_ids = [mem.id for mem in affected]
+
+    for mem in affected:
+        # Snapshot the current confidence for restore (legacy path — pre_invalidation_confidence
+        # is still used by restore to know what value to return to)
+        if mem.pre_invalidation_confidence is None:
+            mem.pre_invalidation_confidence = mem.confidence
+        # Demote trust tier (legacy — recompute will recalculate confidence correctly)
+        mem.derivation_tier = max(mem.derivation_tier or 4, 5)
+
+    db.flush()
+
+    # Migration 012: recompute confidence from stable base_trust for each affected memory
+    # (replaces blanket 50% cut — deterministic from base, not from mutated value)
+    for mem_id in affected_ids:
+        try:
+            _recompute_memory(db, mem_id)
+        except Exception as e:
+            logger.debug("recompute_memory failed for %d during invalidation: %s", mem_id, e)
+
+    db.commit()
+
+    # Migration 012: mark all certificates that used these memories as stale
+    if affected_ids:
+        try:
+            mark_certificates_stale(affected_ids, f"source_invalidated:{source_id}", db)
+            db.commit()
+        except Exception as e:
+            logger.debug("mark_certificates_stale failed (non-fatal): %s", e)
+
+    append_event(
+        "source_invalidated", "source", source_id,
+        {"reason": src.invalidation_reason, "affected_count": len(affected_ids)},
+    )
+
+    return SourceInvalidateResult(
+        source_id=source_id,
+        action="invalidated",
+        affected_memories=len(affected_ids),
+    )
+
+
+@router.post("/sources/{source_id}/restore", response_model=SourceInvalidateResult)
+def restore_source(
+    source_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Restore a previously invalidated source and undo confidence reduction on derived memories.
+    Idempotent: safe to call multiple times.
+    """
+    src = db.query(Source).get(source_id)
+    if not src:
+        raise HTTPException(status_code=404, detail="Source not found")
+    if src.invalidated_at is None:
+        raise HTTPException(status_code=409, detail="Source is not invalidated")
+
+    src.invalidated_at = None
+    src.invalidation_reason = None
+
+    # Restore derived memories — undo demotions and recompute from stable base_trust
+    affected = db.query(Memory).filter(
+        Memory.source_id == source_id,
+        Memory.tombstoned_at.is_(None),
+    ).all()
+    affected_ids = [mem.id for mem in affected]
+
+    for mem in affected:
+        # Restore derivation_tier: can't fully reconstruct original, clamp to 4
+        if (mem.derivation_tier or 4) >= 5:
+            mem.derivation_tier = 4
+        # Clear the invalidation snapshot (no longer needed)
+        mem.pre_invalidation_confidence = None
+
+    db.flush()
+
+    # Migration 012: recompute from stable base_trust now that source is valid again
+    # This is the determinism guarantee: invalidate → restore → confidence is identical
+    for mem_id in affected_ids:
+        try:
+            _recompute_memory(db, mem_id)
+        except Exception as e:
+            logger.debug("recompute_memory failed for %d during restore: %s", mem_id, e)
+
+    db.commit()
+
+    # Migration 012: conservatively clear stale certificates for recovered memories
+    if affected_ids:
+        try:
+            clear_stale_certificates(affected_ids, db)
+            db.commit()
+        except Exception as e:
+            logger.debug("clear_stale_certificates failed (non-fatal): %s", e)
+
+    append_event(
+        "source_restored", "source", source_id,
+        {"restored_count": len(affected_ids)},
+    )
+
+    return SourceInvalidateResult(
+        source_id=source_id,
+        action="restored",
+        affected_memories=len(affected_ids),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Answer certificates (Migration 012)
+# ---------------------------------------------------------------------------
+
+@router.get("/certificates", response_model=CertificateListResponse)
+def list_answer_certificates(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    stale_only: bool = False,
+    db: Session = Depends(get_db),
+):
+    """
+    List answer certificates: a record of what memories and sources backed
+    each query response. Use stale_only=true to see certificates that used
+    memories/sources that have since been invalidated.
+    """
+    result = list_certificates(db, limit=limit, offset=offset, stale_only=stale_only)
+    items = [AnswerCertificateOut(**item) for item in result["items"]]
+    return CertificateListResponse(total=result["total"], items=items)
+
+
+@router.get("/certificates/{certificate_id}", response_model=AnswerCertificateOut)
+def get_answer_certificate(certificate_id: int, db: Session = Depends(get_db)):
+    """
+    Get a single answer certificate with its full memory lineage (memory_ids)
+    and source lineage (source_ids). These are stored in separate junction tables
+    so both lineages can be queried independently.
+    """
+    cert_dict = get_certificate(certificate_id, db)
+    if not cert_dict:
+        raise HTTPException(status_code=404, detail="Certificate not found")
+    return AnswerCertificateOut(**cert_dict)

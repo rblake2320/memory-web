@@ -146,20 +146,13 @@ def embed_memories(source_id: Optional[int] = None, batch_size: int = 64) -> int
         return len(mem_ids)
 
 
-def build_ivfflat_index(lists: int = 100) -> None:
+def _build_ivfflat_index_DEPRECATED(lists: int = 100) -> None:
+    """DEPRECATED: System uses HNSW. Do NOT call — kept for reference only.
+
+    The production index is ix_embeddings_hnsw (HNSW, ef_search=100).
+    IVFFlat would add a redundant index, wasting write amplification.
     """
-    Build IVFFlat cosine index on embeddings table.
-    Call after bulk import is complete for optimal performance.
-    Requires at least `lists` rows in the table.
-    """
-    schema = settings.MW_DB_SCHEMA
-    with engine.connect() as conn:
-        conn.execute(text(
-            f"DROP INDEX IF EXISTS {schema}.ix_embeddings_ivfflat"
-        ))
-        conn.execute(text(
-            f"CREATE INDEX ix_embeddings_ivfflat ON {schema}.embeddings "
-            f"USING ivfflat (vector vector_cosine_ops) WITH (lists = {lists})"
-        ))
-        conn.commit()
-    logger.info("IVFFlat index rebuilt with %d lists", lists)
+    raise NotImplementedError(
+        "IVFFlat index is deprecated. System uses HNSW. "
+        "See migration 004 and ALTER DATABASE ... SET memoryweb.hnsw.ef_search."
+    )

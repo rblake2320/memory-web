@@ -18,6 +18,7 @@ from .config import settings
 from .database import ensure_schema_and_extensions, engine
 from .models import Base
 from .routers import ingest, memory, retention, search, status, chat as chat_router, settings_router
+from .routers import auth as auth_router
 from .workers import embedding_worker
 
 # ── Logging: console + rotating file ──────────────────────────────────────────
@@ -111,8 +112,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="MemoryWeb",
-    description="Provenance-Aware Tiered Memory System",
-    version="0.1.0",
+    description="Provenance-Aware Tiered Memory System | Memory Beast v0.13.0",
+    version="0.13.0",
     lifespan=lifespan,
 )
 
@@ -133,20 +134,24 @@ app.add_middleware(
 
 # Optional API key auth — only active when MW_API_KEY is set
 _NO_AUTH_PATHS = {"/api/health", "/api/status", "/"}
+_NO_AUTH_PREFIXES = ("/api/auth/",)  # auth endpoints never need auth to reach
 
 @app.middleware("http")
 async def api_key_middleware(request: Request, call_next):
-    if settings.MW_API_KEY and request.url.path.startswith("/api/"):
-        if request.url.path not in _NO_AUTH_PATHS:
-            key = (
-                request.headers.get("X-API-Key")
-                or request.query_params.get("api_key")
+    path = request.url.path
+    # Auth endpoints and health are always exempt
+    if any(path.startswith(p) for p in _NO_AUTH_PREFIXES) or path in _NO_AUTH_PATHS:
+        return await call_next(request)
+    if settings.MW_API_KEY and path.startswith("/api/"):
+        key = (
+            request.headers.get("X-API-Key")
+            or request.query_params.get("api_key")
+        )
+        if key != settings.MW_API_KEY:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid or missing API key. Set X-API-Key header."},
             )
-            if key != settings.MW_API_KEY:
-                return JSONResponse(
-                    status_code=401,
-                    content={"detail": "Invalid or missing API key. Set X-API-Key header."},
-                )
     return await call_next(request)
 
 # Register routers
@@ -157,6 +162,7 @@ app.include_router(memory.router)
 app.include_router(retention.router)
 app.include_router(chat_router.router)
 app.include_router(settings_router.router)
+app.include_router(auth_router.router)
 
 
 @app.get("/", tags=["root"])
@@ -164,7 +170,7 @@ def root():
     dashboard = Path(__file__).parent.parent / "static" / "dashboard.html"
     if dashboard.exists():
         return FileResponse(str(dashboard), media_type="text/html")
-    return {"service": "MemoryWeb", "version": "0.1.0", "docs": "/docs"}
+    return {"service": "MemoryWeb", "version": "0.13.0", "docs": "/docs"}
 
 
 if __name__ == "__main__":

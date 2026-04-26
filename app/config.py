@@ -41,4 +41,21 @@ class Settings(BaseSettings):
     MW_API_KEY: str = Field(default="")          # empty = no auth (dev mode)
     MW_CORS_ORIGINS: str = Field(default="*")    # comma-separated list or *
 
+    # Multi-tenant / auth (Migration 013a+)
+    MW_AUTH_ENABLED: bool = Field(default=False)          # opt-in, backward compatible
+    MW_JWT_SECRET: str = Field(default="change-me-in-production-use-256-bit-random")
+    MW_JWT_ALGORITHM: str = Field(default="HS256")
+    MW_JWT_EXPIRY_HOURS: int = Field(default=24)
+
+    # License enforcement (Phase 4)
+    MW_LICENSE_KEY: str = Field(default="")               # empty = community/owner mode
+    MW_LICENSE_SERVER: str = Field(default="https://license.memorybeast.app")
+
+    # Poisoning LLM validation (Phase 2)
+    MW_POISON_LLM_ENABLED: bool = Field(default=False)    # opt-in for LLM poisoning layer
+    MW_POISON_LLM_MODEL: str = Field(default="llama3.1:8b")
+    MW_POISON_LLM_TIMEOUT: float = Field(default=5.0)     # seconds; fail-open if exceeded
+    MW_POISON_LLM_MIN_SCORE: float = Field(default=0.2)   # only call LLM if score >= this
+
+
 settings = Settings()

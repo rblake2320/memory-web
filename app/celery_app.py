@@ -23,6 +23,10 @@ celery_app.conf.update(
             "task": "memoryweb.requeue_stalled",
             "schedule": 600,   # every 10 minutes
         },
+        "sweep-unprocessed-every-15min": {
+            "task": "memoryweb.sweep_unprocessed",
+            "schedule": 900,   # every 15 minutes
+        },
     },
 )
 

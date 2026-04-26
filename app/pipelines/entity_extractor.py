@@ -113,7 +113,7 @@ def extract_entities_for_segment(segment_id: int) -> int:
             EntityMention.segment_id == segment_id
         ).count()
         if existing > 0:
-            return existing
+            return 0
 
         messages = (
             db.query(Message)

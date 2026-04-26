@@ -60,9 +60,13 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     connectable = create_engine(settings.MW_DATABASE_URL, poolclass=pool.NullPool)
 
-    with connectable.connect() as connection:
-        _setup_extensions(connection)
+    # Run schema/extension setup on its own connection so its commit does not
+    # interfere with Alembic's transactional DDL lifecycle.
+    with connectable.connect() as setup_conn:
+        _setup_extensions(setup_conn)
 
+    # Open a fresh connection for migrations (no prior commit on this connection).
+    with connectable.connect() as connection:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,

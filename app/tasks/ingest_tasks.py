@@ -6,6 +6,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from ..celery_app import celery_app
+from ..database import get_tenant_context, DEFAULT_TENANT_ID
 from ..services import ingestion
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,10 @@ def ingest_session_task(self, path: str, force: bool = False) -> Dict[str, Any]:
     self.update_state(state="STARTED", meta={"path": path, "stage": "ingesting"})
     try:
         result = ingestion.ingest_session_file(path, force=force)
+        # Chain pipeline immediately after ingest so we have the real source_id
+        if not result.get("skipped"):
+            from .pipeline_tasks import run_full_pipeline
+            run_full_pipeline.delay(result["source_id"], tenant_id=get_tenant_context())
         return result
     except Exception as e:
         logger.error("ingest_session_task failed: %s", e)

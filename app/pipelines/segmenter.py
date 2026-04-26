@@ -129,8 +129,8 @@ def segment_conversation(conversation_id: int, use_llm: bool = True) -> int:
             Segment.conversation_id == conversation_id
         ).count()
         if existing > 0:
-            logger.info("Conversation %d already has %d segments", conversation_id, existing)
-            return existing
+            logger.debug("Conversation %d already segmented (%d segments) — skipping", conversation_id, existing)
+            return 0
 
         messages = (
             db.query(Message)
