@@ -190,6 +190,19 @@ def _get_pipeline_health() -> PipelineHealthOut:
     )
 
 
+@router.post("/maintain/dedup-audit")
+def trigger_dedup_audit():
+    """
+    Trigger an on-demand semantic dedup audit. Finds memory pairs with
+    cosine similarity > 0.92 not yet linked and creates corroboration links.
+    Returns a Celery task_id to poll for results.
+    """
+    from ..tasks.pipeline_tasks import semantic_dedup_audit
+    result = semantic_dedup_audit.delay()
+    return {"task_id": result.id, "status": "queued",
+            "message": "Semantic dedup audit queued. Poll /api/ingest/status/{task_id} for results."}
+
+
 @router.post("/maintain/rebuild-embeddings")
 def rebuild_embeddings():
     """

@@ -15,6 +15,7 @@ Tenant-aware (Migration 013a):
 """
 
 import logging
+import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -29,7 +30,7 @@ from ..database import (
     set_tenant_context,
     DEFAULT_TENANT_ID,
 )
-from ..models import Conversation, PipelineRun, Source
+from ..models import Conversation, Memory, MemoryLink, PipelineRun, RetentionLog, Source
 from ..pipelines import segmenter, tagger, entity_extractor, memory_synthesizer, embedder
 from ..pipelines.memory_synthesizer import OllamaUnavailableError, SynthesisFailedError
 
@@ -591,4 +592,140 @@ def requeue_stalled(tenant_id: str = DEFAULT_TENANT_ID) -> Dict[str, Any]:
         "requeued_pipelines": requeued_pipelines,
         "permanently_failed_pipelines": permanently_failed_pipelines,
         "reset_embeddings": reset_embeddings,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Time-decay sweep: tombstone old, low-utility, low-importance memories
+# ---------------------------------------------------------------------------
+
+@celery_app.task(name="memoryweb.memory_decay_sweep")
+def memory_decay_sweep(tenant_id: str = DEFAULT_TENANT_ID) -> Dict[str, Any]:
+    """
+    Daily sweep that soft-deletes memories which have become stale:
+    - belief_state = 'active'
+    - importance <= MW_DECAY_MAX_IMPORTANCE (default 2)
+    - utility_score < MW_DECAY_MIN_UTILITY (default 0.1)
+    - last_accessed_at older than MW_DECAY_MIN_AGE_DAYS (default 90) days
+
+    Configure via env vars. Set MW_DECAY_MIN_AGE_DAYS=0 to disable effectively.
+    """
+    set_tenant_context(tenant_id)
+
+    min_age_days = int(os.environ.get("MW_DECAY_MIN_AGE_DAYS", "90"))
+    min_utility = float(os.environ.get("MW_DECAY_MIN_UTILITY", "0.1"))
+    max_importance = int(os.environ.get("MW_DECAY_MAX_IMPORTANCE", "2"))
+
+    cutoff = datetime.utcnow() - timedelta(days=min_age_days)
+    tombstoned = 0
+
+    with db_session() as db:
+        candidates = (
+            db.query(Memory)
+            .filter(
+                Memory.tombstoned_at.is_(None),
+                Memory.belief_state == "active",
+                Memory.importance <= max_importance,
+                Memory.utility_score < min_utility,
+                Memory.last_accessed_at < cutoff,
+            )
+            .all()
+        )
+
+        ids = [m.id for m in candidates]
+        now = datetime.utcnow()
+
+        for m in candidates:
+            m.tombstoned_at = now
+            tombstoned += 1
+
+        if ids:
+            db.add(RetentionLog(
+                action="tombstone",
+                target_type="memory",
+                target_ids=ids,
+                reason="time_decay_sweep",
+                triggered_by="celery_beat",
+            ))
+
+    logger.info(
+        "memory_decay_sweep: tombstoned=%d (age>%dd, utility<%.2f, importance<=%d)",
+        tombstoned, min_age_days, min_utility, max_importance,
+    )
+    return {
+        "tombstoned": tombstoned,
+        "cutoff_date": cutoff.isoformat(),
+        "min_utility": min_utility,
+        "max_importance": max_importance,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Semantic dedup audit: find near-duplicate memories not yet linked
+# ---------------------------------------------------------------------------
+
+@celery_app.task(name="memoryweb.semantic_dedup_audit")
+def semantic_dedup_audit(tenant_id: str = DEFAULT_TENANT_ID) -> Dict[str, Any]:
+    """
+    On-demand audit that finds memory pairs with cosine similarity > 0.92
+    that are not yet linked in memory_links, and creates corroboration links.
+
+    Dispatched by POST /api/maintain/dedup-audit. Processes up to 500 pairs
+    per run (call again to continue if many are found).
+    """
+    set_tenant_context(tenant_id)
+
+    from sqlalchemy import text as _text
+    from ..config import settings as _settings
+
+    SCHEMA = _settings.MW_DB_SCHEMA
+    COSINE_DIST_THRESHOLD = 0.08  # cosine distance < 0.08 → similarity > 0.92
+
+    new_links = 0
+    pairs_scanned = 0
+
+    with tenant_connection(tenant_id) as conn:
+        rows = conn.execute(_text(f"""
+            SELECT e1.target_id AS mem_a,
+                   e2.target_id AS mem_b,
+                   1.0 - (e1.vector <=> e2.vector) AS similarity
+            FROM {SCHEMA}.embeddings e1
+            JOIN {SCHEMA}.embeddings e2
+              ON e2.target_id > e1.target_id
+             AND e2.target_type = 'memory'
+            JOIN {SCHEMA}.memories m1
+              ON m1.id = e1.target_id AND m1.tombstoned_at IS NULL
+            JOIN {SCHEMA}.memories m2
+              ON m2.id = e2.target_id AND m2.tombstoned_at IS NULL
+            WHERE e1.target_type = 'memory'
+              AND e1.vector <=> e2.vector < :threshold
+              AND NOT EXISTS (
+                  SELECT 1 FROM {SCHEMA}.memory_links ml
+                  WHERE (ml.memory_id_a = e1.target_id AND ml.memory_id_b = e2.target_id)
+                     OR (ml.memory_id_a = e2.target_id AND ml.memory_id_b = e1.target_id)
+              )
+            LIMIT 500
+        """), {"threshold": COSINE_DIST_THRESHOLD}).fetchall()
+
+        pairs_scanned = len(rows)
+
+        for row in rows:
+            mem_a, mem_b, similarity = row[0], row[1], float(row[2])
+            conn.execute(_text(f"""
+                INSERT INTO {SCHEMA}.memory_links (memory_id_a, memory_id_b, link_type, confidence)
+                VALUES (:a, :b, 'corroborates', :conf)
+                ON CONFLICT DO NOTHING
+            """), {"a": mem_a, "b": mem_b, "conf": round(similarity, 4)})
+            new_links += 1
+
+        conn.commit()
+
+    logger.info(
+        "semantic_dedup_audit: pairs_scanned=%d, new_links=%d",
+        pairs_scanned, new_links,
+    )
+    return {
+        "pairs_scanned": pairs_scanned,
+        "new_links_created": new_links,
+        "threshold": 1.0 - COSINE_DIST_THRESHOLD,
     }

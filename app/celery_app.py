@@ -21,11 +21,15 @@ celery_app.conf.update(
     beat_schedule={
         "requeue-stalled-every-10min": {
             "task": "memoryweb.requeue_stalled",
-            "schedule": 600,   # every 10 minutes
+            "schedule": 600,    # every 10 minutes
         },
         "sweep-unprocessed-every-15min": {
             "task": "memoryweb.sweep_unprocessed",
-            "schedule": 900,   # every 15 minutes
+            "schedule": 900,    # every 15 minutes
+        },
+        "memory-decay-sweep-daily": {
+            "task": "memoryweb.memory_decay_sweep",
+            "schedule": crontab(hour=3, minute=0),  # daily at 03:00 UTC
         },
     },
 )
