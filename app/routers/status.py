@@ -1,6 +1,8 @@
 """Health + stats status endpoint."""
 
 import logging
+import platform
+import subprocess
 
 from fastapi import APIRouter
 from sqlalchemy import text
@@ -57,6 +59,20 @@ def _check_celery() -> ServiceStatus:
         inspect = celery_app.control.inspect(timeout=2.0)
         workers = inspect.ping()
         healthy = bool(workers)
+        if not workers and platform.system().lower() == "windows":
+            svc = subprocess.run(
+                ["sc.exe", "query", "MemoryWeb-Celery"],
+                capture_output=True,
+                text=True,
+                timeout=3,
+                check=False,
+            )
+            if svc.returncode == 0 and "RUNNING" in svc.stdout:
+                return ServiceStatus(
+                    name="celery",
+                    healthy=True,
+                    detail="worker service running; inspect unavailable or busy",
+                )
         return ServiceStatus(
             name="celery",
             healthy=healthy,
